@@ -1,0 +1,8 @@
+# The zizmor policy for every repository this action runs in: each audit at
+# its default, except those below, each with the reason.
+rules:
+  # It asks for GitHub's `uses: $/...` self-repository form in place of
+  # `uses: ./...`. actionlint rejects `$/` until rhysd/actionlint#711 lands,
+  # so `./` stays, and this audit is off until then.
+  self-repository:
+    disable: true
