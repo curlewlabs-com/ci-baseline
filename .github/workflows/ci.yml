@@ -79,10 +79,53 @@ jobs:
           OUTCOME: ${{ steps.judged.outcome }}
         run: test "$OUTCOME" = failure
 
+  sources:
+    # A script that sources a file beside it, in a directory below the
+    # repository root: it passes only when shellcheck follows the source from
+    # the script's own directory, and a mistake in the sourcing script still
+    # fails once it does.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add a script that sources a sibling file
+        run: |
+          mkdir -p tools/greet
+          cat > tools/greet/common.sh <<'SCRIPT'
+          #!/bin/sh
+          greet() {
+          	echo "hello $1"
+          }
+          SCRIPT
+          cat > tools/greet/caller.sh <<'SCRIPT'
+          #!/bin/sh
+          set -eu
+          . ./common.sh
+          greet "$@"
+          SCRIPT
+          git add tools/greet
+      - name: The action passes it
+        uses: ./
+      - name: Add a mistake to the sourcing script
+        run: |
+          cat >> tools/greet/caller.sh <<'SCRIPT'
+          greet $1
+          SCRIPT
+          git add tools/greet/caller.sh
+      - name: The action reports it
+        id: judged
+        continue-on-error: true
+        uses: ./
+      - name: Require that it failed
+        env:
+          OUTCOME: ${{ steps.judged.outcome }}
+        run: test "$OUTCOME" = failure
+
   conclusion:
     # The one check branch protection requires, so adding or renaming a job
     # above needs no settings change - only this list.
-    needs: [lint, baseline, finds]
+    needs: [lint, baseline, finds, sources]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -91,4 +134,5 @@ jobs:
           LINT: ${{ needs.lint.result }}
           BASELINE: ${{ needs.baseline.result }}
           FINDS: ${{ needs.finds.result }}
-        run: test "$LINT" = success && test "$BASELINE" = success && test "$FINDS" = success
+          SOURCES: ${{ needs.sources.result }}
+        run: test "$LINT" = success && test "$BASELINE" = success && test "$FINDS" = success && test "$SOURCES" = success
