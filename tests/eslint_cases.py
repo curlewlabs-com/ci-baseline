@@ -47,7 +47,7 @@ TSCONFIG = json.dumps(
 )
 
 # Set by main(): the node_modules of an install of tests/node-types.
-NODE_MODULES: Path | None = None
+node_types_modules: Path | None = None
 
 TYPED_REPO = {"tsconfig.json": TSCONFIG}
 
@@ -60,7 +60,7 @@ class Lint:
     # Rule ids or messages the output must hold; empty means the run passes.
     reports: Sequence[str] = ()
     node_types: bool = False
-    env: Mapping[str, str] = field(default_factory=dict)
+    env: Mapping[str, str] = field(default_factory=dict[str, str])
     executable: Sequence[str] = ()
     # A directory in the case's repository put first on PATH.
     path_first: str | None = None
@@ -800,7 +800,7 @@ class Install:
     name: str
     # Edits a copy of this tree's lint/package-lock.json.
     lock_edit: str | None = None
-    env: Mapping[str, str] = field(default_factory=dict)
+    env: Mapping[str, str] = field(default_factory=dict[str, str])
     foreign_dest: bool = False
     reports: Sequence[str] = ()
 
@@ -854,9 +854,9 @@ def run(cmd: Sequence[str], cwd: Path, env: Mapping[str, str]) -> tuple[int, str
 
 
 def install_node_types(repo: Path) -> None:
-    if NODE_MODULES is None:
-        raise RuntimeError("main() sets NODE_MODULES before any case runs")
-    shutil.copytree(NODE_MODULES, repo / "node_modules")
+    if node_types_modules is None:
+        raise RuntimeError("main() sets node_types_modules before any case runs")
+    shutil.copytree(node_types_modules, repo / "node_modules")
 
 
 def git_repo(path: Path, tracked: Mapping[str, str], node_types: bool) -> None:
@@ -936,12 +936,12 @@ def install_case(case: Install, scratch: Path) -> str | None:
 
 
 def main(argv: list[str]) -> int:
-    global NODE_MODULES
+    global node_types_modules
     if len(argv) != 3:
         print("usage: eslint_cases.py <install dir> <node types dir>", file=sys.stderr)
         return 2
     install = Path(argv[1]).resolve()
-    NODE_MODULES = Path(argv[2]).resolve() / "node_modules"
+    node_types_modules = Path(argv[2]).resolve() / "node_modules"
     failed = 0
     for lint in CASES:
         with tempfile.TemporaryDirectory() as scratch:

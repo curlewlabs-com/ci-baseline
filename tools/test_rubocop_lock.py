@@ -59,7 +59,7 @@ def lock_at(version: str, **locked: str) -> str:
         gemfile(version), LOCK, RUBY, serve((version, recorded(version)))[1]
     )
     for name, value in locked.items():
-        lines = []
+        lines: list[str] = []
         for line in text.split("\n"):
             if line.startswith(f"    {name} ("):
                 line = f"    {name} ({value})"
