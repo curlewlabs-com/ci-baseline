@@ -14,7 +14,7 @@ runs:
   using: composite
   steps:
     - name: ascii-lint
-      uses: curlewlabs-com/ascii-lint@903ae0510aae5655a6e2194ae99ed772d91a601c # v0.1.0
+      uses: curlewlabs-com/ascii-lint@3d1e5eebd3b957020b46882d3b9a6d1bd212046b # v0.2.0
     - name: hosted-runner-lint
       if: ${{ !cancelled() }}
       uses: curlewlabs-com/hosted-runner-lint@81695b70a6a7715c5c8951aed9f9abd7d97ab9a0 # v0.1.0
