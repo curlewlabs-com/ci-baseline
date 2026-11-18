@@ -1,5 +1,27 @@
-# Not a package: the configuration of the lint the action runs over this
-# repository's Python, and of the type check CI runs over tools/.
+# The action is not installed; the package below is what another project
+# installs to read the pyright policy the action applies (policy.py), and is
+# also what the action's pyright step runs from its own checkout.
+[build-system]
+requires = ["flit_core==4.2.0"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "ci-baseline-pyright"
+version = "0.3.0"
+description = "The pyright strict policy ci-baseline holds every repository's Python to, and the step that applies it."
+readme = "README.md"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+authors = [{ name = "Curlew Labs" }]
+# The python3 the current Ubuntu hosted runner image ships; the package's
+# __init__ refuses anything older with a message.
+requires-python = ">=3.12"
+# Nothing: the package runs on the standard library.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/curlewlabs-com/ci-baseline"
+
 [tool.ruff]
 target-version = "py312"
 
@@ -9,4 +31,5 @@ extend-select = ["I", "UP", "B"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["tools", "lib", "tests"]
+mypy_path = "src"
+files = ["src", "tests", "tools", "lib"]

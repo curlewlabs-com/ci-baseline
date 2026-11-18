@@ -7,13 +7,15 @@ whether a check that could not run still fails.
 ## Running the checks
 
 CI runs the action on this repository's own tree on every push and pull request,
-which is what lints and formats it. The type check and the unit tests of
-`tools/` are the things it runs besides; locally, with Python 3.12 or newer:
+which is what lints, formats and type-checks it with pyright. Besides that it
+runs mypy, the unit tests of `tools/` and the pyright step's unit tests;
+locally, with Python 3.12 or newer:
 
 ```sh
 python3 -m pip install -r requirements-dev.txt
 mypy
 python3 -m unittest discover -s tools
+python3 -m unittest discover -s tests -t .
 ```
 
 To see what the action would report before pushing, run the same tools at the
@@ -46,9 +48,10 @@ not worth having.
   tested there.
 - **One policy.** What is checked, and at which version, is the same in every
   repository. A zizmor exception goes in `zizmor.yml` with the reason, for every
-  repository at once, and zizmor, buildifier and RuboCop never read a
+  repository at once, and zizmor, buildifier, RuboCop and pyright never read a
   repository's own configuration. A RuboCop rule changes in
-  `lib/rubocop/config.yml`, with its reason beside it. A formatter, ruff, shellcheck or actionlint reads the
+  `lib/rubocop/config.yml`, and a pyright back-off in
+  `src/ci_baseline_pyright/policy.py`, with its reason beside it. A formatter, ruff, shellcheck or actionlint reads the
   repository's, since how its files are laid out and which lint rules it adopts
   are its own to say; the README lists what each check reads.
 - **The action's steps call scripts.** Each `run:` in `action.yml` is one call
@@ -105,8 +108,11 @@ updates and deletions of those tags, and publishing the GitHub Release makes the
 tag immutable. Consumers pin a release by its commit, so there is no floating
 tag to move.
 
-1. On `main`, `lint/config/package.json`'s `version` is the release's, without
-   the `v`; a pull request moves it before the tag when it is not.
+1. On `main`, `lint/config/package.json`'s `version` and `pyproject.toml`'s
+   `version` are the release's, without the `v`, so the eslint configuration
+   and the pyright policy package another project installs from the tag each
+   name the release they are; a pull request moves them before the tag when
+   they are not.
 2. Tag a `main` commit whose required checks passed `vMAJOR.MINOR.PATCH` and
    push the tag.
 3. Pack the configuration for a repository that runs eslint from its own

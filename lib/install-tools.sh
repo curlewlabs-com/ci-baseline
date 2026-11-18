@@ -23,6 +23,8 @@ SHFMT_VERSION=v3.14.1
 BUILDIFIER_VERSION=v10.2.0
 # renovate: datasource=npm depName=prettier
 PRETTIER_VERSION=3.9.10
+# renovate: datasource=npm depName=pyright
+PYRIGHT_VERSION=1.1.414
 # shell-trap-lint is fetched as a commit, which git verifies by its name, so
 # it has no digest below; the tag beside it is the release that commit is.
 # renovate: datasource=github-tags depName=curlewlabs-com/shell-trap-lint pin=digest
@@ -53,9 +55,11 @@ SHFMT_SHA256_X86_64=76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7e
 SHFMT_SHA256_AARCH64=5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489
 BUILDIFIER_SHA256_X86_64=470844069d710d0b7740e55007071c63e4d00be89a833dce5d1a91790e84dc28
 BUILDIFIER_SHA256_AARCH64=e33b41bdb36eca5dfa69647333f4f148272654b98cddcea12f38fac5ec0a00ff
-# prettier is JavaScript with no dependencies, so one tarball serves every
+# prettier and pyright are each JavaScript with no dependencies (pyright's
+# one optional dependency is for macOS), so one tarball serves every
 # architecture.
 PRETTIER_SHA256=9dc72045591793dff972432fb78722f7ab91aaa90a7fa8c1261ede55969246b7
+PYRIGHT_SHA256=bf5f473f6167c0d14175492c3263d783b4489a6956e1c06c18e15228e3a3fa42
 
 case "$(uname -s)-$(uname -m)" in
 Linux-x86_64)
@@ -201,6 +205,12 @@ tar -xzf "$work/prettier.tgz" -C "$work"
 rm -rf "$bin/prettier"
 mv "$work/package" "$bin/prettier"
 
+fetch "https://registry.npmjs.org/pyright/-/pyright-$PYRIGHT_VERSION.tgz" \
+	"$PYRIGHT_SHA256" "$work/pyright.tgz"
+tar -xzf "$work/pyright.tgz" -C "$work"
+rm -rf "$bin/pyright"
+mv "$work/package" "$bin/pyright"
+
 # One commit, fetched by its full name: git refuses an object whose content
 # does not hash to the name it was asked for, which is the check a digest
 # makes for the downloads above. The lint runs from this tree, uninstalled.
@@ -225,4 +235,5 @@ rm -rf "$work"
 echo "shfmt $("$bin/shfmt" --version)"
 "$bin/buildifier" --version | head -n 1
 echo "prettier $(node "$bin/prettier/bin/prettier.cjs" --version)"
+node "$bin/pyright/index.js" --version
 echo "shell-trap-lint $(git -C "$shell_trap_lint" rev-parse HEAD)"

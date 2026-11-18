@@ -58,6 +58,17 @@ jobs:
       - name: Unit tests
         run: python -m unittest discover -s tools
 
+  test-pyright:
+    # The pyright step's own unit tests, on the python3 the runner image ships,
+    # which is the one the step runs on.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Unit tests
+        run: python3 -m unittest discover -s tests -t . -v
+
   baseline:
     # The action as a consumer runs it, on this repository, which must pass.
     strategy:
@@ -203,6 +214,550 @@ jobs:
           FORMAT: ${{ steps.format.outcome }}
         run: test "$LINT" = failure && test "$FORMAT" = failure
 
+  # The type check's proof cases. A fixture text that names the type checker,
+  # its configuration or a lint the action runs is put in `env:` rather than
+  # written into a `run:`, since it names what the case writes, not a run of
+  # the tool.
+  pyright:
+    # The policy: a clean tree passes, with a comparison only the rule this
+    # action switches off everywhere would report, and with typed files under
+    # a directory beginning with `.` and one named node_modules, which pyright
+    # leaves unread by default and the action must not; a strict finding fails in
+    # a file that is not a test and in a test; and a mypy suppression does
+    # not hide a finding on its line.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add typed modules, one with a comparison of a set with a frozenset
+        run: |
+          mkdir -p case
+          cat > case/clean.py <<'FILE'
+          FROZEN = frozenset({"a"})
+
+
+          def same(items: set[str]) -> bool:
+              return items == FROZEN
+          FILE
+          mkdir -p case/.hooks case/node_modules
+          printf 'LABEL: str = "label"\n' >case/.hooks/label.py
+          printf 'LABEL: str = "label"\n' >case/node_modules/label.py
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Add a function whose parameter has no type
+        run: |
+          cat > case/double.py <<'FILE'
+          def double(value):
+              return value * 2
+          FILE
+          git add case
+      - name: The action reports it
+        id: code
+        continue-on-error: true
+        uses: ./
+      - name: Move it into a test
+        run: git mv case/double.py case/test_double.py
+      - name: The action reports it
+        id: test
+        continue-on-error: true
+        uses: ./
+      - name: Replace it with an assignment of the wrong type, under a mypy suppression
+        run: |
+          git rm -q -f case/test_double.py
+          printf 'LABEL: int = "label"  # type: ignore[assignment]\n' >case/label.py
+          git add case/label.py
+      - name: The action reports it
+        id: suppressed
+        continue-on-error: true
+        uses: ./
+      - name: Require that all three failed
+        env:
+          CODE: ${{ steps.code.outcome }}
+          TEST: ${{ steps.test.outcome }}
+          SUPPRESSED: ${{ steps.suppressed.outcome }}
+        run: >-
+          test "$CODE" = failure && test "$TEST" = failure &&
+          test "$SUPPRESSED" = failure
+
+  pyright-tests:
+    # The two rules the policy switches off in tests only, each shown both
+    # ways: a test calling a module's private helper, and a test handing a
+    # lambda to a parameter typed Any, pass; the same file outside a test
+    # fails.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add a module, a test that calls its private helper, and one that hands it a lambda
+        run: |
+          mkdir -p case
+          cat > case/clean.py <<'FILE'
+          from typing import Any
+
+
+          def _helper(value: int) -> int:
+              return value + 1
+
+
+          def run(callback: Any) -> None:
+              callback(_helper(1))
+          FILE
+          printf 'import clean\n\nprint(clean._helper(1))\n' >case/test_private.py
+          printf 'import clean\n\nclean.run(lambda value: value)\n' >case/test_callback.py
+          git add case
+      - name: The action passes them
+        uses: ./
+      - name: Make the private call outside a test
+        run: git mv case/test_private.py case/private.py
+      - name: The action reports it
+        id: private
+        continue-on-error: true
+        uses: ./
+      - name: Make the lambda outside a test instead
+        run: |
+          git mv case/private.py case/test_private.py
+          git mv case/test_callback.py case/callback.py
+      - name: The action reports it
+        id: lambda
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          PRIVATE: ${{ steps.private.outcome }}
+          LAMBDA: ${{ steps.lambda.outcome }}
+        run: test "$PRIVATE" = failure && test "$LAMBDA" = failure
+
+  pyright-comments:
+    # The one comment a file may carry silences the rule it names on its line
+    # and no other. An ignore naming no rule, a comment lowering the whole
+    # file to basic and one switching a rule off for the whole file are each
+    # refused, over a finding each would otherwise have hidden.
+    runs-on: ubuntu-24.04
+    env:
+      NAMED: "# pyright: ignore[reportAssignmentType]"
+      OTHER: "# pyright: ignore[reportUnknownMemberType]"
+      BLANKET: "# pyright: ignore"
+      BASIC: "# pyright: basic"
+      RULE_OFF: "# pyright: reportAssignmentType=false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add an assignment of the wrong type, silenced by name
+        run: |
+          mkdir -p case
+          printf 'LABEL: int = "label"  %s\n' "$NAMED" >case/label.py
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Name another rule instead
+        run: |
+          printf 'LABEL: int = "label"  %s\n' "$OTHER" >case/label.py
+      - name: The action reports it
+        id: other
+        continue-on-error: true
+        uses: ./
+      - name: Name no rule instead
+        run: |
+          printf 'LABEL: int = "label"  %s\n' "$BLANKET" >case/label.py
+      - name: The action reports it
+        id: blanket
+        continue-on-error: true
+        uses: ./
+      - name: Lower the whole file to basic instead, over a finding only strict makes
+        run: |
+          printf '%s\nLABEL: str = "label"\n\n\ndef double(value):\n    return value * 2\n' "$BASIC" >case/label.py
+      - name: The action reports it
+        id: basic
+        continue-on-error: true
+        uses: ./
+      - name: Switch the rule off for the whole file instead
+        run: |
+          printf '%s\nLABEL: int = "label"\n' "$RULE_OFF" >case/label.py
+      - name: The action reports it
+        id: rule-off
+        continue-on-error: true
+        uses: ./
+      - name: Require that all four failed
+        env:
+          OTHER_RULE: ${{ steps.other.outcome }}
+          BLANKET_IGNORE: ${{ steps.blanket.outcome }}
+          BASIC_FILE: ${{ steps.basic.outcome }}
+          RULE_OFF_FILE: ${{ steps.rule-off.outcome }}
+        run: >-
+          test "$OTHER_RULE" = failure && test "$BLANKET_IGNORE" = failure &&
+          test "$BASIC_FILE" = failure && test "$RULE_OFF_FILE" = failure
+
+  pyright-configuration:
+    # A configuration in the checkout that is not tracked is never read: with
+    # one at the root and one beside the file, each switching checking off, a
+    # clean tree passes and a finding still fails. A tracked one, and a
+    # tracked pyproject.toml table, each fail a tree that is otherwise clean.
+    runs-on: ubuntu-24.04
+    env:
+      CONFIGURATION: pyrightconfig.json
+      TABLE: "[tool.pyright]"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add a typed module, and an untracked configuration that switches checking off
+        run: |
+          mkdir -p case
+          printf 'LABEL: str = "label"\n' >case/label.py
+          git add case
+          printf '{ "typeCheckingMode": "off" }\n' >"$CONFIGURATION"
+          printf '{ "typeCheckingMode": "off" }\n' >"case/$CONFIGURATION"
+      - name: The action passes it
+        uses: ./
+      - name: Give it an assignment of the wrong type
+        run: |
+          printf 'LABEL: int = "label"\n' >case/label.py
+      - name: The action reports it
+        id: untracked
+        continue-on-error: true
+        uses: ./
+      - name: Fix it, and track the configuration beside it
+        run: |
+          printf 'LABEL: str = "label"\n' >case/label.py
+          git add "case/$CONFIGURATION"
+      - name: The action refuses it
+        id: tracked
+        continue-on-error: true
+        uses: ./
+      - name: Replace it with a table in the tracked pyproject.toml
+        run: |
+          git rm -q --cached "case/$CONFIGURATION"
+          printf '\n%s\ntypeCheckingMode = "off"\n' "$TABLE" >>pyproject.toml
+      - name: The action refuses it
+        id: table
+        continue-on-error: true
+        uses: ./
+      - name: Require that all three failed
+        env:
+          UNTRACKED: ${{ steps.untracked.outcome }}
+          TRACKED: ${{ steps.tracked.outcome }}
+          TABLE_OUTCOME: ${{ steps.table.outcome }}
+        run: >-
+          test "$UNTRACKED" = failure && test "$TRACKED" = failure &&
+          test "$TABLE_OUTCOME" = failure
+
+  pyright-floor:
+    # The Python checked against is ruff's target-version, read from each of
+    # the files ruff reads it from: a module importing a name the standard
+    # library added in 3.13 fails at this repository's own 3.12, and passes
+    # once that file names 3.13.
+    strategy:
+      fail-fast: false
+      matrix:
+        file: [.ruff.toml, ruff.toml, pyproject.toml]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add a module that imports a name from 3.13
+        run: |
+          mkdir -p case
+          cat > case/narrow.py <<'FILE'
+          from typing import TypeIs
+
+
+          def is_text(value: object) -> TypeIs[str]:
+              return isinstance(value, str)
+          FILE
+          git add case
+      - name: The action reports it
+        id: floor
+        continue-on-error: true
+        uses: ./
+      - name: Require that it failed
+        env:
+          OUTCOME: ${{ steps.floor.outcome }}
+        run: test "$OUTCOME" = failure
+      - name: Raise the floor to 3.13 in the file
+        env:
+          FILE: ${{ matrix.file }}
+        run: |
+          if [ "$FILE" = pyproject.toml ]; then
+            sed -i 's/^target-version = "py312"$/target-version = "py313"/' "$FILE"
+            grep -qx 'target-version = "py313"' "$FILE"
+          else
+            printf 'target-version = "py313"\n' >"$FILE"
+          fi
+      - name: The action passes it
+        uses: ./
+
+  pyright-stated:
+    # The platform checked for is mypy's: an error only reachable on macOS
+    # passes, and fails once pyproject.toml names darwin. A repository whose
+    # ruff configuration names no target-version fails, since its floor is
+    # unstated; ruff itself then takes the floor from `requires-python`, so
+    # it is not what fails.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add an error only reachable on macOS
+        run: |
+          mkdir -p case
+          cat > case/platform.py <<'FILE'
+          import sys
+
+          if sys.platform == "darwin":
+              LABEL: int = "darwin"
+          FILE
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Name darwin as mypy's platform
+        run: |
+          sed -i 's/^\[tool\.mypy\]$/&\nplatform = "darwin"/' pyproject.toml
+          grep -qx 'platform = "darwin"' pyproject.toml
+      - name: The action reports it
+        id: platform
+        continue-on-error: true
+        uses: ./
+      - name: Restore it, and take the target-version out
+        run: |
+          git restore pyproject.toml
+          git rm -q --cached case/platform.py
+          sed -i '/^target-version = /d' pyproject.toml
+          ! grep -q '^target-version' pyproject.toml
+      - name: The action reports it
+        id: unstated
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          PLATFORM: ${{ steps.platform.outcome }}
+          UNSTATED: ${{ steps.unstated.outcome }}
+        run: test "$PLATFORM" = failure && test "$UNSTATED" = failure
+
+  pyright-resolution:
+    # Where a file's imports resolve. Two directories each hold a `helper`,
+    # one whose VALUE is a str and one whose VALUE is an int, so a module
+    # that reads VALUE as a str passes only if its import resolved to the
+    # helper in its own directory: beside the str one it passes, beside the
+    # int one it fails. A namespace package under src/ resolves from a test
+    # elsewhere in the tree. An import that resolved nowhere would fail
+    # every case.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: own-directory
+            main: case/b/main.py
+            expect: success
+          - case: own-directory-differs
+            main: case/a/main.py
+            expect: failure
+          - case: namespace-package
+            expect: success
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Write the case
+        env:
+          CASE: ${{ matrix.case }}
+          MAIN: ${{ matrix.main }}
+        run: |
+          mkdir -p case
+          case $CASE in
+          namespace-package)
+            mkdir -p case/src/space case/tests
+            printf 'VALUE: str = "label"\n' >case/src/space/helper.py
+            printf 'from space import helper\n\nLABEL: str = helper.VALUE\n' >case/tests/check_space.py
+            ;;
+          *)
+            mkdir -p case/a case/b
+            printf 'VALUE: int = 1\n' >case/a/helper.py
+            printf 'VALUE: str = "label"\n' >case/b/helper.py
+            printf 'import helper\n\nLABEL: str = helper.VALUE\n' >"$MAIN"
+            ;;
+          esac
+          git add case
+      - name: The action judges it
+        id: judged
+        continue-on-error: true
+        uses: ./
+      - name: Require the expected outcome
+        env:
+          OUTCOME: ${{ steps.judged.outcome }}
+          EXPECT: ${{ matrix.expect }}
+        run: test "$OUTCOME" = "$EXPECT"
+
+  pyright-search-paths:
+    # An import of a module the repository does not track resolves only
+    # through `python-search-paths`, relative or absolute, and nothing in a
+    # search path is checked: its module has a finding of its own. An
+    # untracked module in the checkout is not read without it, and a search
+    # path that does not exist fails.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add a module that imports one fetched into the checkout and outside it
+        env:
+          OUTSIDE: ${{ runner.temp }}/fetched
+        run: |
+          mkdir -p case vendor "$OUTSIDE"
+          printf 'import vendored\n\nLABEL: str = vendored.LABEL\n' >case/uses.py
+          git add case
+          printf 'LABEL: str = "label"\n\n\ndef double(value):\n    return value * 2\n' >vendor/vendored.py
+          cp vendor/vendored.py "$OUTSIDE/vendored.py"
+      - name: The action reports it
+        id: unnamed
+        continue-on-error: true
+        uses: ./
+      - name: The action passes it, given the directory in the checkout
+        uses: ./
+        with:
+          python-search-paths: vendor
+      - name: The action passes it, given the directory outside the checkout
+        uses: ./
+        with:
+          python-search-paths: |
+            ${{ runner.temp }}/fetched
+      - name: The action reports a directory that does not exist
+        id: missing
+        continue-on-error: true
+        uses: ./
+        with:
+          python-search-paths: |
+            vendor
+            fetched
+      - name: Require that both failed
+        env:
+          UNNAMED: ${{ steps.unnamed.outcome }}
+          MISSING: ${{ steps.missing.outcome }}
+        run: test "$UNNAMED" = failure && test "$MISSING" = failure
+
+  pyright-isolated:
+    # What a caller's job or checkout could set for the type checker, or for
+    # the node and Python it is run by, is planted, and none of it reaches the
+    # check. Each judged run below fails, where any one of its plants alone
+    # would have let it pass.
+    #
+    # First, a finding, under: NODE_OPTIONS loading a script that answers the
+    # checker's request for a report with a clean one; PYTHONPATH naming a
+    # json module that exits 0; a stand-in checker on PATH, and one in the
+    # checkout's node_modules, that each report nothing. Then a tracked import
+    # of a typed package the repository does not track, which resolves if the
+    # checker reads the job's Python (PYTHONPATH names a directory holding
+    # it) or anything untracked in the checkout (the module beside the
+    # tracked file, a stub under typings/). A clean tree under every plant at
+    # once passes.
+    runs-on: ubuntu-24.04
+    env:
+      CHECKER: pyright
+      CLEAN_REPORT: --require ${{ github.workspace }}/planted/clean-report.js
+      STAND_INS: ${{ github.workspace }}/planted/stand-ins
+      MODULES: ${{ github.workspace }}/planted/modules
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Plant the stand-ins, and add a typed module
+        run: |
+          mkdir -p planted/bin "$STAND_INS" "$MODULES/planted" case typings "node_modules/$CHECKER" node_modules/.bin
+          cat > planted/clean-report.js <<'FILE'
+          if (process.argv.includes("--outputjson")) {
+            const files = process.argv.filter((arg) => arg.endsWith(".py")).length;
+            process.stdout.write(
+              JSON.stringify({ generalDiagnostics: [], summary: { filesAnalyzed: files } }),
+            );
+            process.exit(0);
+          }
+          FILE
+          cp planted/clean-report.js "node_modules/$CHECKER/index.js"
+          printf '#!/bin/sh\necho "0 errors"\n' >"planted/bin/$CHECKER"
+          cp "planted/bin/$CHECKER" "node_modules/.bin/$CHECKER"
+          chmod +x "planted/bin/$CHECKER" "node_modules/.bin/$CHECKER"
+          echo "$PWD/planted/bin" >>"$GITHUB_PATH"
+          printf 'raise SystemExit(0)\n' >"$STAND_INS/json.py"
+          printf 'LABEL: str = "label"\n' >"$MODULES/planted/__init__.py"
+          touch "$MODULES/planted/py.typed"
+          printf 'LABEL: str = "label"\n' >case/planted.py
+          printf 'LABEL: str\n' >typings/planted.pyi
+          printf 'LABEL: str = "label"\n' >case/label.py
+          git add case/label.py
+      - name: The action passes it, under every plant
+        env:
+          NODE_OPTIONS: ${{ env.CLEAN_REPORT }}
+          PYTHONPATH: ${{ env.STAND_INS }}:${{ env.MODULES }}
+        uses: ./
+      - name: Give it an assignment of the wrong type
+        run: |
+          printf 'LABEL: int = "label"\n' >case/label.py
+      - name: The action reports it, under the planted report, json and checkers
+        id: environment
+        continue-on-error: true
+        env:
+          NODE_OPTIONS: ${{ env.CLEAN_REPORT }}
+          PYTHONPATH: ${{ env.STAND_INS }}
+        uses: ./
+      - name: Fix it, and import the planted package instead
+        run: |
+          printf 'LABEL: str = "label"\n' >case/label.py
+          printf 'import planted\n\nLABEL: str = planted.LABEL\n' >case/uses.py
+          git add case/uses.py
+      - name: The action reports it, with the package on PYTHONPATH and in the checkout
+        id: module
+        continue-on-error: true
+        env:
+          PYTHONPATH: ${{ env.MODULES }}
+        uses: ./
+      - name: Require that both failed
+        env:
+          ENVIRONMENT: ${{ steps.environment.outcome }}
+          MODULE: ${{ steps.module.outcome }}
+        run: test "$ENVIRONMENT" = failure && test "$MODULE" = failure
+
+  pyright-skipped:
+    # A tree that tracks no Python file pyright can be given passes without
+    # the type checker being run, though the files are still there,
+    # untracked.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Leave every .py file out of the tracked files
+        run: git ls-files -z -- '*.py' '*.pyi' | xargs -0 git rm -q --cached --
+      - name: The action passes the tree
+        uses: ./
+      - name: Require that the type checker was not run
+        env:
+          WORK: ${{ runner.temp }}/ci-baseline/pyright
+        run: test ! -e "$WORK"
   silent:
     # A local action whose expressions sit where GitHub evaluates them passes;
     # the same action with one in an input's description, which GitHub
@@ -835,10 +1390,21 @@ jobs:
     needs:
       - lint
       - test
+      - test-pyright
       - baseline
       - finds
       - sources
       - python
+      - pyright
+      - pyright-tests
+      - pyright-comments
+      - pyright-configuration
+      - pyright-floor
+      - pyright-stated
+      - pyright-resolution
+      - pyright-search-paths
+      - pyright-isolated
+      - pyright-skipped
       - silent
       - shell
       - starlark
@@ -860,10 +1426,21 @@ jobs:
         env:
           LINT: ${{ needs.lint.result }}
           TEST: ${{ needs.test.result }}
+          TEST_PYRIGHT: ${{ needs.test-pyright.result }}
           BASELINE: ${{ needs.baseline.result }}
           FINDS: ${{ needs.finds.result }}
           SOURCES: ${{ needs.sources.result }}
           PYTHON: ${{ needs.python.result }}
+          PYRIGHT: ${{ needs.pyright.result }}
+          PYRIGHT_TESTS: ${{ needs.pyright-tests.result }}
+          PYRIGHT_COMMENTS: ${{ needs.pyright-comments.result }}
+          PYRIGHT_CONFIGURATION: ${{ needs.pyright-configuration.result }}
+          PYRIGHT_FLOOR: ${{ needs.pyright-floor.result }}
+          PYRIGHT_STATED: ${{ needs.pyright-stated.result }}
+          PYRIGHT_RESOLUTION: ${{ needs.pyright-resolution.result }}
+          PYRIGHT_SEARCH_PATHS: ${{ needs.pyright-search-paths.result }}
+          PYRIGHT_ISOLATED: ${{ needs.pyright-isolated.result }}
+          PYRIGHT_SKIPPED: ${{ needs.pyright-skipped.result }}
           SILENT: ${{ needs.silent.result }}
           SHELL_FILES: ${{ needs.shell.result }}
           STARLARK: ${{ needs.starlark.result }}
@@ -880,10 +1457,18 @@ jobs:
           CONFIG_TARBALL: ${{ needs.config-tarball.result }}
         run: >-
           test "$LINT" = success && test "$TEST" = success &&
+          test "$TEST_PYRIGHT" = success &&
           test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
           test "$PYTHON" = success && test "$SILENT" = success &&
-          test "$SHELL_FILES" = success &&
+          test "$PYRIGHT" = success && test "$PYRIGHT_TESTS" = success &&
+          test "$PYRIGHT_COMMENTS" = success &&
+          test "$PYRIGHT_CONFIGURATION" = success &&
+          test "$PYRIGHT_FLOOR" = success && test "$PYRIGHT_STATED" = success &&
+          test "$PYRIGHT_RESOLUTION" = success &&
+          test "$PYRIGHT_SEARCH_PATHS" = success &&
+          test "$PYRIGHT_ISOLATED" = success &&
+          test "$PYRIGHT_SKIPPED" = success && test "$SHELL_FILES" = success &&
           test "$STARLARK" = success && test "$FORMATS" = success &&
           test "$RUBY" = success && test "$RUBY_FORMS" = success &&
           test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success &&
