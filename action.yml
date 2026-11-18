@@ -1,8 +1,9 @@
 name: ci-baseline
 description: >-
-  The checks every repository runs: actionlint, zizmor, shellcheck over every
-  shell file, prettier formatting, ASCII-only text, GitHub-hosted runners
-  only, and composite steps that call scripts.
+  The checks every repository runs: actionlint, zizmor, shellcheck, shfmt and
+  shell-trap-lint over every shell file, ruff, buildifier, prettier formatting,
+  ASCII-only text, GitHub-hosted runners only, and composite steps that call
+  scripts.
 author: Curlew Labs
 branding:
   icon: check-square
@@ -21,7 +22,7 @@ runs:
     - name: action-run-lint
       if: ${{ !cancelled() }}
       uses: curlewlabs-com/action-run-lint@09a094e71cff461987330467a871ad6d1026df4c # v0.1.0
-    - name: Install the pinned actionlint, shellcheck, zizmor and prettier
+    - name: Install the pinned tools
       id: tools
       if: ${{ !cancelled() }}
       shell: sh
@@ -36,11 +37,32 @@ runs:
       env:
         GH_TOKEN: ${{ github.token }}
       run: '"$GITHUB_ACTION_PATH/lib/zizmor.sh"'
-    - name: shellcheck every shell file
-      if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+    - name: List the tracked files
+      id: files
+      if: ${{ !cancelled() }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/tracked-files.sh"'
+    - name: shellcheck
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
       shell: sh
       run: '"$GITHUB_ACTION_PATH/lib/shellcheck.sh"'
+    - name: shfmt
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/shfmt.sh"'
+    - name: shell-trap-lint
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/shell-trap-lint.sh"'
+    - name: ruff
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/ruff.sh"'
+    - name: buildifier
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/buildifier.sh"'
     - name: prettier
-      if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
       shell: sh
       run: '"$GITHUB_ACTION_PATH/lib/prettier.sh"'

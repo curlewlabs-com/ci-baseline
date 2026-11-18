@@ -1,8 +1,9 @@
 """Finish a tool bump in CI: rewrite the digests beside the versions.
 
-A bump moves a `*_VERSION` line in lib/install-tools.sh. The sha256 of each release asset the installer fetches
-follows from the version and cannot be typed from it, so this downloads each
-asset for the versions the file now names and writes its digest beside it.
+A bump moves a `*_VERSION` line in lib/install-tools.sh. The sha256 of each
+asset the installer fetches follows from the version and cannot be typed from
+it, so this downloads each asset for the versions the file now names and
+writes its digest beside it.
 
     python3 tools/refresh_tools.py
 
@@ -58,6 +59,31 @@ ASSETS = {
         "ZIZMOR_VERSION",
         RELEASES.format(repo="zizmorcore/zizmor")
         + "zizmor-aarch64-unknown-linux-gnu.tar.gz",
+    ),
+    "RUFF_SHA256_X86_64": (
+        "RUFF_VERSION",
+        RELEASES.format(repo="astral-sh/ruff") + "ruff-x86_64-unknown-linux-gnu.tar.gz",
+    ),
+    "RUFF_SHA256_AARCH64": (
+        "RUFF_VERSION",
+        RELEASES.format(repo="astral-sh/ruff")
+        + "ruff-aarch64-unknown-linux-gnu.tar.gz",
+    ),
+    "SHFMT_SHA256_X86_64": (
+        "SHFMT_VERSION",
+        RELEASES.format(repo="mvdan/sh") + "shfmt_{version}_linux_amd64",
+    ),
+    "SHFMT_SHA256_AARCH64": (
+        "SHFMT_VERSION",
+        RELEASES.format(repo="mvdan/sh") + "shfmt_{version}_linux_arm64",
+    ),
+    "BUILDIFIER_SHA256_X86_64": (
+        "BUILDIFIER_VERSION",
+        RELEASES.format(repo="bazel-contrib/buildtools") + "buildifier-linux-amd64",
+    ),
+    "BUILDIFIER_SHA256_AARCH64": (
+        "BUILDIFIER_VERSION",
+        RELEASES.format(repo="bazel-contrib/buildtools") + "buildifier-linux-arm64",
     ),
     "PRETTIER_SHA256": (
         "PRETTIER_VERSION",

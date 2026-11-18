@@ -22,6 +22,8 @@ concurrency:
 
 jobs:
   lint:
+    # The type check, which needs this repository's own configuration. Its
+    # Python is linted and formatted by the action itself, in `baseline`.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,10 +34,6 @@ jobs:
           python-version: "3.14"
       - name: Install the pinned tools
         run: python -m pip install -r requirements-dev.txt
-      - name: ruff format
-        run: ruff format --check .
-      - name: ruff check
-        run: ruff check .
       - name: mypy (strict)
         run: mypy
 
@@ -122,6 +120,185 @@ jobs:
           OUTCOME: ${{ steps.judged.outcome }}
         run: test "$OUTCOME" = failure
 
+  python:
+    # A Python script with no extension, which ruff must still be given: the
+    # action passes it clean, and reports a lint finding in it and a
+    # formatting difference in it, each on its own.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add a clean script with no extension
+        run: |
+          mkdir -p case
+          cat > case/report <<'FILE'
+          #!/usr/bin/env python3
+          import sys
+
+          print(sys.argv)
+          FILE
+          chmod +x case/report
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Give it an import it does not use
+        run: |
+          cat > case/report <<'FILE'
+          #!/usr/bin/env python3
+          import os
+          import sys
+
+          print(sys.argv)
+          FILE
+      - name: The action reports it
+        id: lint
+        continue-on-error: true
+        uses: ./
+      - name: Format it badly instead
+        run: |
+          cat > case/report <<'FILE'
+          #!/usr/bin/env python3
+          import sys
+
+          print( sys.argv )
+          FILE
+      - name: The action reports it
+        id: format
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          LINT: ${{ steps.lint.outcome }}
+          FORMAT: ${{ steps.format.outcome }}
+        run: test "$LINT" = failure && test "$FORMAT" = failure
+
+  shell:
+    # A script whose EXIT trap fails a run that stopped short: the action
+    # passes it, reports it once shfmt would rewrite it, and reports a trap
+    # that lets such a run exit 0.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add a formatted script with a trap in the script form
+        run: |
+          mkdir -p case
+          cat > case/work.sh <<'FILE'
+          #!/bin/sh
+          set -eu
+          TMP=$(mktemp)
+          RUN_COMPLETE=0
+          # shellcheck disable=SC2154  # the trap body assigns _trap_rc before it reads it
+          trap '_trap_rc=$?; [ "$RUN_COMPLETE" = 1 ] || [ "$_trap_rc" -ne 0 ] || _trap_rc=1; rm -f "$TMP"; exit "$_trap_rc"' EXIT
+          if [ -n "$TMP" ]; then
+          	echo working >"$TMP"
+          fi
+          RUN_COMPLETE=1
+          FILE
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Indent it with spaces
+        run: |
+          cat > case/work.sh <<'FILE'
+          #!/bin/sh
+          set -eu
+          TMP=$(mktemp)
+          RUN_COMPLETE=0
+          # shellcheck disable=SC2154  # the trap body assigns _trap_rc before it reads it
+          trap '_trap_rc=$?; [ "$RUN_COMPLETE" = 1 ] || [ "$_trap_rc" -ne 0 ] || _trap_rc=1; rm -f "$TMP"; exit "$_trap_rc"' EXIT
+          if [ -n "$TMP" ]; then
+              echo working >"$TMP"
+          fi
+          RUN_COMPLETE=1
+          FILE
+      - name: The action reports it
+        id: format
+        continue-on-error: true
+        uses: ./
+      - name: Give it a trap that only cleans up instead
+        run: |
+          cat > case/work.sh <<'FILE'
+          #!/bin/sh
+          set -eu
+          TMP=$(mktemp)
+          trap 'rm -f "$TMP"' EXIT
+          echo working >"$TMP"
+          FILE
+      - name: The action reports it
+        id: trap
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          FORMAT: ${{ steps.format.outcome }}
+          TRAP: ${{ steps.trap.outcome }}
+        run: test "$FORMAT" = failure && test "$TRAP" = failure
+
+  starlark:
+    # A BUILD file and a .bzl file: the action passes them clean, and reports
+    # a formatting difference in one and a lint warning in the other.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add a formatted BUILD file and a .bzl file with no warning
+        run: |
+          mkdir -p case
+          cat > case/BUILD.bazel <<'FILE'
+          filegroup(
+              name = "files",
+              srcs = ["a.txt"],
+          )
+          FILE
+          cat > case/defs.bzl <<'FILE'
+          """A function that describes."""
+
+          def describe():
+              """Returns a description."""
+              return "described"
+          FILE
+          git add case
+      - name: The action passes them
+        uses: ./
+      - name: Put the BUILD file's rule on one line
+        run: |
+          cat > case/BUILD.bazel <<'FILE'
+          filegroup(name = "files", srcs = ["a.txt"])
+          FILE
+      - name: The action reports it
+        id: format
+        continue-on-error: true
+        uses: ./
+      - name: Restore it, and give the function a variable it never reads
+        run: |
+          cat > case/BUILD.bazel <<'FILE'
+          filegroup(
+              name = "files",
+              srcs = ["a.txt"],
+          )
+          FILE
+          cat > case/defs.bzl <<'FILE'
+          """A function that describes."""
+
+          def describe():
+              """Returns a description."""
+              unused = 1
+              return "described"
+          FILE
+      - name: The action reports it
+        id: lint
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          FORMAT: ${{ steps.format.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+        run: test "$FORMAT" = failure && test "$LINT" = failure
+
   formats:
     # A tracked file prettier would format differently fails the run, and a
     # file the repository's .prettierignore names is left alone.
@@ -153,7 +330,7 @@ jobs:
   conclusion:
     # The one check branch protection requires, so adding or renaming a job
     # above needs no settings change - only this list.
-    needs: [lint, baseline, finds, sources, formats]
+    needs: [lint, baseline, finds, sources, python, shell, starlark, formats]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -163,5 +340,12 @@ jobs:
           BASELINE: ${{ needs.baseline.result }}
           FINDS: ${{ needs.finds.result }}
           SOURCES: ${{ needs.sources.result }}
+          PYTHON: ${{ needs.python.result }}
+          SHELL_FILES: ${{ needs.shell.result }}
+          STARLARK: ${{ needs.starlark.result }}
           FORMATS: ${{ needs.formats.result }}
-        run: test "$LINT" = success && test "$BASELINE" = success && test "$FINDS" = success && test "$SOURCES" = success && test "$FORMATS" = success
+        run: >-
+          test "$LINT" = success && test "$BASELINE" = success &&
+          test "$FINDS" = success && test "$SOURCES" = success &&
+          test "$PYTHON" = success && test "$SHELL_FILES" = success &&
+          test "$STARLARK" = success && test "$FORMATS" = success

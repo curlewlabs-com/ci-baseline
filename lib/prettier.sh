@@ -10,26 +10,8 @@
 # whenever their pins differ.
 set -eu
 bin=$RUNNER_TEMP/ci-baseline/bin
-all=$RUNNER_TEMP/ci-baseline/tracked
-files=$RUNNER_TEMP/ci-baseline/prettier-files
+files=$RUNNER_TEMP/ci-baseline/files/all
 cd "$(git rev-parse --show-toplevel)"
-# Prettier refuses a symlink named on its command line, and a tracked file
-# deleted from the checkout has nothing to read, so each is left out; a path
-# git has to quote cannot be read back and fails the run, as in shellcheck.sh.
-git -c core.quotePath=false ls-files >"$all"
-: >"$files"
-while IFS= read -r f; do
-	case $f in
-	\"*)
-		echo "ci-baseline: cannot read the tracked path $f" >&2
-		exit 1
-		;;
-	esac
-	if [ -L "$f" ] || [ ! -f "$f" ]; then
-		continue
-	fi
-	printf '%s\n' "$f" >>"$files"
-done <"$all"
 if [ ! -s "$files" ]; then
 	echo "ci-baseline: no files to check"
 	exit 0
