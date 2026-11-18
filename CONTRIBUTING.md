@@ -33,8 +33,8 @@ versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
   with the version beside it, since a tag can be moved. A downloaded tool is an
   exact version with the sha256 of each asset beside it, or a commit, which git
   verifies by its name. Renovate proposes the updates; after a tool bump,
-  `python3 tools/refresh_tools.py` rewrites the digests. A pin written inline needs a `# renovate:` comment above it saying
-  what the literal is.
+  `python3 tools/refresh_tools.py` rewrites the digests. A pin written inline
+  needs a `# renovate:` comment above it saying what the literal is.
 - **Comments explain why, not what.**
 - **Keep tracked text ASCII.**
 

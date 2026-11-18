@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.14"
-      - name: Install the pinned tools
+      - name: Install the pinned mypy
         run: python -m pip install -r requirements-dev.txt
       - name: mypy (strict)
         run: mypy
@@ -123,7 +123,9 @@ jobs:
   python:
     # A Python script with no extension, which ruff must still be given: the
     # action passes it clean, and reports a lint finding in it and a
-    # formatting difference in it, each on its own.
+    # formatting difference in it, each on its own. The finding is one ruff
+    # can fix, under a configuration that tells it to: the action must still
+    # report it, and leave the file as it was.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -142,7 +144,7 @@ jobs:
           git add case
       - name: The action passes it
         uses: ./
-      - name: Give it an import it does not use
+      - name: Give it an import it does not use, and a configuration that fixes
         run: |
           cat > case/report <<'FILE'
           #!/usr/bin/env python3
@@ -151,10 +153,17 @@ jobs:
 
           print(sys.argv)
           FILE
+          cat > case/ruff.toml <<'FILE'
+          fix = true
+          fix-only = true
+          FILE
+          git add case
       - name: The action reports it
         id: lint
         continue-on-error: true
         uses: ./
+      - name: Require that the import is still there
+        run: grep -qx 'import os' case/report
       - name: Format it badly instead
         run: |
           cat > case/report <<'FILE'
