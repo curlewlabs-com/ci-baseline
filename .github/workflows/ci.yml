@@ -16,6 +16,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # This repository's own Gemfile, which makes every run of the action over
+  # this tree pull the Ruby image. A job that tests nothing in Ruby leaves it
+  # out of the tracked files first, so it pulls nothing it does not need.
+  RUBY_GEMFILE: lib/rubocop/Gemfile
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -181,6 +187,87 @@ jobs:
           LINT: ${{ steps.lint.outcome }}
           FORMAT: ${{ steps.format.outcome }}
         run: test "$LINT" = failure && test "$FORMAT" = failure
+
+  silent:
+    # A local action whose expressions sit where GitHub evaluates them passes;
+    # the same action with one in an input's description, which GitHub
+    # refuses to load, fails, and so does a workflow_run trigger naming no
+    # workflow. zizmor refuses every workflow_run trigger too, so the last
+    # case shows the action failing, not which of its checks failed; the
+    # manifest case is one only the action's manifest lint reports.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add a local action with an expression in its input's default
+        run: |
+          mkdir -p case
+          cat > case/action.yml <<'FILE'
+          name: case
+          description: Prints the token's length.
+          inputs:
+            token:
+              description: The token to measure.
+              default: @{{ github.token }}
+          runs:
+            using: composite
+            steps:
+              - shell: sh
+                env:
+                  TOKEN: @{{ inputs.token }}
+                run: '"$GITHUB_ACTION_PATH/run.sh"'
+          FILE
+          cat > case/run.sh <<'FILE'
+          #!/bin/sh
+          set -eu
+          echo "${#TOKEN}"
+          FILE
+          chmod +x case/run.sh
+          # Written as @{{ and turned into an expression's opening here, so
+          # this workflow evaluates none of the fixture's expressions itself.
+          dollar='$'
+          sed -i "s/@{{/${dollar}{{/g" case/action.yml
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Describe the input with an expression instead
+        run: |
+          dollar='$'
+          sed -i "s/description: The token to measure./description: The ${dollar}{{ github.token }} to measure./" case/action.yml
+          grep -q 'description: The .{{ github.token }} to measure.' case/action.yml
+      - name: The action reports it
+        id: manifest
+        continue-on-error: true
+        uses: ./
+      - name: Restore it, and add a workflow_run trigger naming no workflow
+        run: |
+          git restore case/action.yml
+          cat > .github/workflows/case-child.yml <<'FILE'
+          name: Case child
+          on:
+            workflow_run:
+              workflows: [No Such Workflow]
+              types: [completed]
+          permissions: {}
+          jobs:
+            noop:
+              runs-on: ubuntu-24.04
+              steps:
+                - run: "true"
+          FILE
+          git add .github/workflows/case-child.yml
+      - name: The action reports it
+        id: trigger
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          MANIFEST: ${{ steps.manifest.outcome }}
+          TRIGGER: ${{ steps.trigger.outcome }}
+        run: test "$MANIFEST" = failure && test "$TRIGGER" = failure
 
   shell:
     # A script whose EXIT trap fails a run that stopped short: the action
@@ -493,8 +580,63 @@ jobs:
         run: git rm -q --cached lib/rubocop/Gemfile
       - name: The action passes the tree
         uses: ./
-      - name: Require that the image was not pulled
-        run: test -z "$(docker image ls --quiet public.ecr.aws/docker/library/ruby)"
+      - name: Require that the image was not pulled from either registry
+        run: |
+          repositories=$(docker image ls --format '{{.Repository}}')
+          if echo "$repositories" | grep -E '(^|/)ruby$'; then
+            exit 1
+          fi
+
+  ruby-fallback:
+    # ECR Public made unreachable - its name resolved to a closed local port -
+    # and the image still arrives, from Docker Hub under the pinned digest,
+    # after ECR Public's refusals are retried; RuboCop then passes a clean file.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Point ECR Public at a closed port
+        run: |
+          echo "127.0.0.1 public.ecr.aws" | sudo tee -a /etc/hosts
+          if curl -sS --max-time 10 -o /dev/null https://public.ecr.aws/v2/; then
+            echo "public.ecr.aws is still reachable" >&2
+            exit 1
+          fi
+      - name: Pull the image
+        id: pull
+        run: |
+          lib/install-tools.sh ruby 2>"$RUNNER_TEMP/pull.log" >"$RUNNER_TEMP/pulled" || {
+            cat "$RUNNER_TEMP/pull.log"
+            exit 1
+          }
+          cat "$RUNNER_TEMP/pull.log"
+          echo "reference=$(cat "$RUNNER_TEMP/pulled")" >>"$GITHUB_OUTPUT"
+      - name: Require the fallback, after retries, to have pulled the pinned digest
+        env:
+          REFERENCE: ${{ steps.pull.outputs.reference }}
+        run: |
+          pinned=$(sed -n 's/^RUBY_VERSION=.*@//p' lib/install-tools.sh)
+          case "$REFERENCE" in docker.io/library/ruby:*"@$pinned") ;; *)
+            echo "pulled $REFERENCE, not Docker Hub's $pinned" >&2
+            exit 1
+            ;;
+          esac
+          images=$(docker image ls --digests --format '{{.Repository}} {{.Digest}}')
+          echo "$images"
+          echo "$images" | grep -Ex "(docker\.io/library/)?ruby $pinned"
+          if echo "$images" | grep -F public.ecr.aws; then
+            exit 1
+          fi
+          # ECR Public's two retries; Docker Hub may retry too, and still pass.
+          test "$(grep -c '^ci-baseline: public\.ecr\.aws/.* failed (attempt' "$RUNNER_TEMP/pull.log")" -eq 2
+      - name: Add a clean Ruby file
+        run: |
+          mkdir -p case
+          printf '# frozen_string_literal: true\n\nputs "hello"\n' >case/greet.rb
+          git add case
+      - name: The action passes it with the image from Docker Hub
+        uses: ./
 
   ruby-isolated:
     # What a caller's job or checkout could set for Ruby, Bundler or RuboCop is
@@ -638,6 +780,7 @@ jobs:
       - finds
       - sources
       - python
+      - silent
       - shell
       - starlark
       - formats
@@ -645,6 +788,7 @@ jobs:
       - ruby-forms
       - ruby-skipped
       - ruby-isolated
+      - ruby-fallback
       - eslint
       - eslint-cases
       - rules
@@ -659,6 +803,7 @@ jobs:
           FINDS: ${{ needs.finds.result }}
           SOURCES: ${{ needs.sources.result }}
           PYTHON: ${{ needs.python.result }}
+          SILENT: ${{ needs.silent.result }}
           SHELL_FILES: ${{ needs.shell.result }}
           STARLARK: ${{ needs.starlark.result }}
           FORMATS: ${{ needs.formats.result }}
@@ -666,6 +811,7 @@ jobs:
           RUBY_FORMS: ${{ needs.ruby-forms.result }}
           RUBY_SKIPPED: ${{ needs.ruby-skipped.result }}
           RUBY_ISOLATED: ${{ needs.ruby-isolated.result }}
+          RUBY_FALLBACK: ${{ needs.ruby-fallback.result }}
           ESLINT: ${{ needs.eslint.result }}
           ESLINT_CASES: ${{ needs.eslint-cases.result }}
           RULES: ${{ needs.rules.result }}
@@ -673,9 +819,11 @@ jobs:
         run: >-
           test "$LINT" = success && test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
-          test "$PYTHON" = success && test "$SHELL_FILES" = success &&
+          test "$PYTHON" = success && test "$SILENT" = success &&
+          test "$SHELL_FILES" = success &&
           test "$STARLARK" = success && test "$FORMATS" = success &&
           test "$RUBY" = success && test "$RUBY_FORMS" = success &&
           test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success &&
+          test "$RUBY_FALLBACK" = success &&
           test "$ESLINT" = success && test "$ESLINT_CASES" = success &&
           test "$RULES" = success && test "$CONFIG_TARBALL" = success

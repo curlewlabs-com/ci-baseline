@@ -6,21 +6,22 @@ One composite GitHub Action that runs the checks every Curlew Labs repository
 holds itself to, so each repository's CI enrolls in all of them with one step
 and the policy lives in one place:
 
-| Check                                                                      | What fails                                                                                                                      |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| [ascii-lint](https://github.com/curlewlabs-com/ascii-lint)                 | any non-ASCII character in tracked text                                                                                         |
-| [hosted-runner-lint](https://github.com/curlewlabs-com/hosted-runner-lint) | a workflow job that would run on a self-hosted or larger runner                                                                 |
-| [action-run-lint](https://github.com/curlewlabs-com/action-run-lint)       | a composite action `run:` step that is not one call of a script file                                                            |
-| [actionlint](https://github.com/rhysd/actionlint)                          | workflow errors, and shellcheck findings in workflow `run:` blocks                                                              |
-| [zizmor](https://github.com/zizmorcore/zizmor)                             | workflow and action security findings, at any severity                                                                          |
-| [shellcheck](https://github.com/koalaman/shellcheck)                       | any finding in a tracked shell file                                                                                             |
-| [shfmt](https://github.com/mvdan/sh)                                       | a tracked shell file shfmt formats differently                                                                                  |
-| [shell-trap-lint](https://github.com/curlewlabs-com/shell-trap-lint)       | an EXIT trap in a tracked shell file that lets a run that stopped short exit 0                                                  |
-| [ruff](https://docs.astral.sh/ruff/)                                       | a lint finding in a tracked Python file, or one ruff formats differently                                                        |
-| [RuboCop](https://rubocop.org)                                             | any finding in a tracked Ruby file, under the one configuration in [`lib/rubocop/config.yml`](lib/rubocop/config.yml)           |
-| [buildifier](https://github.com/bazel-contrib/buildtools)                  | a tracked Starlark file buildifier formats differently, or a lint warning in one                                                |
-| [prettier](https://prettier.io)                                            | a tracked file of a kind prettier formats (Markdown, YAML, JSON, JavaScript, TypeScript, CSS, HTML) that it formats differently |
-| [eslint](https://eslint.org)                                               | a finding in a tracked JavaScript or TypeScript file, of the rules that need no type information                                |
+| Check                                                                        | What fails                                                                                                                      |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| [ascii-lint](https://github.com/curlewlabs-com/ascii-lint)                   | any non-ASCII character in tracked text                                                                                         |
+| [hosted-runner-lint](https://github.com/curlewlabs-com/hosted-runner-lint)   | a workflow job that would run on a self-hosted or larger runner                                                                 |
+| [action-run-lint](https://github.com/curlewlabs-com/action-run-lint)         | a composite action `run:` step that is not one call of a script file                                                            |
+| [actions-silent-lint](https://github.com/curlewlabs-com/actions-silent-lint) | a `workflow_run` trigger naming no workflow, or a `${{ }}` expression in an action manifest field GitHub refuses to load        |
+| [actionlint](https://github.com/rhysd/actionlint)                            | workflow errors, and shellcheck findings in workflow `run:` blocks                                                              |
+| [zizmor](https://github.com/zizmorcore/zizmor)                               | workflow and action security findings, at any severity                                                                          |
+| [shellcheck](https://github.com/koalaman/shellcheck)                         | any finding in a tracked shell file                                                                                             |
+| [shfmt](https://github.com/mvdan/sh)                                         | a tracked shell file shfmt formats differently                                                                                  |
+| [shell-trap-lint](https://github.com/curlewlabs-com/shell-trap-lint)         | an EXIT trap in a tracked shell file that lets a run that stopped short exit 0                                                  |
+| [ruff](https://docs.astral.sh/ruff/)                                         | a lint finding in a tracked Python file, or one ruff formats differently                                                        |
+| [RuboCop](https://rubocop.org)                                               | any finding in a tracked Ruby file, under the one configuration in [`lib/rubocop/config.yml`](lib/rubocop/config.yml)           |
+| [buildifier](https://github.com/bazel-contrib/buildtools)                    | a tracked Starlark file buildifier formats differently, or a lint warning in one                                                |
+| [prettier](https://prettier.io)                                              | a tracked file of a kind prettier formats (Markdown, YAML, JSON, JavaScript, TypeScript, CSS, HTML) that it formats differently |
+| [eslint](https://eslint.org)                                                 | a finding in a tracked JavaScript or TypeScript file, of the rules that need no type information                                |
 
 Each check runs whatever the one before it found, so one run reports all of
 them, and any failure fails the action. A check with no file of its language to
@@ -95,14 +96,27 @@ their GitHub releases, and prettier from the npm registry, at the versions in
 [`lib/install-tools.sh`](lib/install-tools.sh), and each download is refused
 unless its sha256 matches the digest beside the version. shell-trap-lint is
 fetched as the commit named there, which git verifies by its name, and runs on
-the shfmt above. The three lints at the top of the table are actions pinned by
+the shfmt above. The four lints at the top of the table are actions pinned by
 commit in [`action.yml`](action.yml). A runner image's own copies of these tools
 are not used, because they move whenever the image does.
 
+actions-silent-lint reads every tracked workflow and action manifest, so a
+repository with neither a `workflow_run` trigger nor an `action.yml` has
+nothing for it to report, and it passes. It runs from its own pinned checkout
+on the job's `python3`, `git` and `yq`: its launcher runs `python3 -P` with
+`PYTHONPATH` set to its own source, not extended, so neither the checkout's
+directory nor a `PYTHONPATH` of the caller's job can put a module in place of
+its own or the standard library's. It reads only tracked files, as `git`
+lists them, and takes no configuration and no inline exception.
+
 RuboCop runs in a container, and only where a repository tracks Ruby: the
-official Ruby image, pulled from Amazon ECR Public's copy of Docker's official
-images by the digest in `lib/install-tools.sh`, which Docker refuses a pull not
-to match. RuboCop and every gem it needs are installed inside it from
+official Ruby image, pulled by the digest in `lib/install-tools.sh`, which
+Docker refuses a pull not to match. It comes from Amazon ECR Public's copy of
+Docker's official images, or from Docker Hub when ECR Public cannot serve it:
+each registry gets three attempts against rate limits, server errors, network
+failures and any other failure but two: a registry without the image is left
+for the other at once, and an image that does not match the digest is never
+retried or fetched from the other. RuboCop and every gem it needs are installed inside it from
 [`lib/rubocop/Gemfile.lock`](lib/rubocop/Gemfile.lock) with the lock frozen, so
 Bundler refuses a gem whose sha256 is not the one the lock's `CHECKSUMS` record,
 and the image's compiler builds the ones with a C extension. What crosses into the container is
