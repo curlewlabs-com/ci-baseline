@@ -17,7 +17,10 @@ mypy
 
 To see what the action would report before pushing, run the same tools at the
 versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
-`ruff check . && ruff format --check .`, `shfmt -d lib`, `prettier --check .`.
+`ruff check . && ruff format --check .`, `shfmt -d lib`, `prettier --check .`,
+and, with the gems in [`lib/rubocop/Gemfile.lock`](lib/rubocop/Gemfile.lock),
+`BUNDLE_GEMFILE=lib/rubocop/Gemfile bundle exec rubocop --config lib/rubocop/config.yml`
+on the Ruby files.
 
 ## Conventions
 
@@ -26,8 +29,9 @@ versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
   tested there.
 - **One policy.** What is checked, and at which version, is the same in every
   repository. A zizmor exception goes in `zizmor.yml` with the reason, for every
-  repository at once, and zizmor and buildifier never read a repository's own
-  configuration. A formatter, ruff, shellcheck or actionlint reads the
+  repository at once, and zizmor, buildifier and RuboCop never read a
+  repository's own configuration. A RuboCop rule changes in
+  `lib/rubocop/config.yml`, with its reason beside it. A formatter, ruff, shellcheck or actionlint reads the
   repository's, since how its files are laid out and which lint rules it adopts
   are its own to say; the README lists what each check reads.
 - **The action's steps call scripts.** Each `run:` in `action.yml` is one call
@@ -36,8 +40,11 @@ versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
 - **Pin dependencies exactly.** An action reference is its release's commit SHA
   with the version beside it, since a tag can be moved. A downloaded tool is an
   exact version with the sha256 of each asset beside it, or a commit, which git
-  verifies by its name. Renovate proposes the updates; after a tool bump,
-  `python3 tools/refresh_tools.py` rewrites the digests. A pin written inline
+  verifies by its name. The Ruby image is its tag and digest, which an update
+  moves together. RuboCop and the gems it needs are pinned by
+  `lib/rubocop/Gemfile.lock`, whose `CHECKSUMS` Bundler checks. Renovate
+  proposes the updates; after a tool bump, `python3 tools/refresh_tools.py`
+  rewrites the digests. A pin written inline
   needs a `# renovate:` comment above it saying what the literal is.
 - **Comments explain why, not what.**
 - **Keep tracked text ASCII.**

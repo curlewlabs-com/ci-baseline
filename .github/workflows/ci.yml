@@ -342,10 +342,229 @@ jobs:
           OUTCOME: ${{ steps.judged.outcome }}
         run: test "$OUTCOME" = failure
 
+  ruby:
+    # A clean file of each form the action reads as Ruby passes, names that a
+    # Ruby tool requires included. A Ruby script with no extension, given a
+    # finding RuboCop could correct, is reported and left uncorrected, even
+    # with RUBOCOP_OPTS asking for one other cop and for corrections. A
+    # RuboCop options file at the root, tracked or not, and a configuration
+    # file below it, each fail a tree that is otherwise clean. The fixture names are in
+    # `env:`, since each names a file the case writes, not a run of the tool.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add a clean file of each form
+        run: |
+          mkdir -p case/fastlane
+          cat > case/greet <<'FILE'
+          #!/usr/bin/env ruby
+          # frozen_string_literal: true
+
+          puts "hello"
+          FILE
+          chmod +x case/greet
+          cp case/greet case/greet.tool
+          printf '# frozen_string_literal: true\n\nbrew "jq"\n' >case/Brewfile.extra
+          printf '# frozen_string_literal: true\n\napp_identifier "com.example.app"\n' >case/fastlane/Appfile
+          printf '# frozen_string_literal: true\n\ngit_url "https://example.com/certificates"\n' >case/fastlane/Matchfile
+          printf '# frozen_string_literal: true\n\ngem "fastlane-plugin-example"\n' >case/fastlane/Pluginfile
+          printf '# frozen_string_literal: true\n\nputs "hello"\n' >case/greet.rb
+          printf '# frozen_string_literal: true\n\ntask :default\n' >Rakefile.rb
+          git add case Rakefile.rb
+      - name: The action passes them
+        uses: ./
+      - name: Quote its string the other way
+        run: |
+          cat > case/greet <<'FILE'
+          #!/usr/bin/env ruby
+          # frozen_string_literal: true
+
+          puts 'hello'
+          FILE
+      - name: The action reports it, whatever RUBOCOP_OPTS says
+        id: finding
+        continue-on-error: true
+        env:
+          RUBOCOP_OPTS: --only Layout/LineLength --autocorrect
+        uses: ./
+      - name: Require that the string is still as it was
+        run: grep -qxF "puts 'hello'" case/greet
+      - name: Restore it, and add an options file at the root
+        env:
+          OPTIONS_FILE: .rubocop
+        run: |
+          git restore case/greet
+          printf -- '--only Layout/LineLength\n' >"$OPTIONS_FILE"
+          git add "$OPTIONS_FILE"
+      - name: The action reports it
+        id: options
+        continue-on-error: true
+        uses: ./
+      - name: Replace it with a configuration file below the root
+        env:
+          OPTIONS_FILE: .rubocop
+          CONFIGURATION_FILE: case/.rubocop.yml
+        run: |
+          git rm -q -f "$OPTIONS_FILE"
+          printf 'AllCops:\n  DisabledByDefault: true\n' >"$CONFIGURATION_FILE"
+          git add "$CONFIGURATION_FILE"
+      - name: The action reports it
+        id: configuration
+        continue-on-error: true
+        uses: ./
+      - name: Replace it with an options file at the root that is not tracked
+        env:
+          OPTIONS_FILE: .rubocop
+          CONFIGURATION_FILE: case/.rubocop.yml
+        run: |
+          git rm -q -f "$CONFIGURATION_FILE"
+          printf -- '--only Layout/LineLength\n' >"$OPTIONS_FILE"
+      - name: The action reports it
+        id: untracked
+        continue-on-error: true
+        uses: ./
+      - name: Require that all four failed
+        env:
+          FINDING: ${{ steps.finding.outcome }}
+          OPTIONS: ${{ steps.options.outcome }}
+          CONFIGURATION: ${{ steps.configuration.outcome }}
+          UNTRACKED: ${{ steps.untracked.outcome }}
+        run: >-
+          test "$FINDING" = failure && test "$OPTIONS" = failure &&
+          test "$CONFIGURATION" = failure && test "$UNTRACKED" = failure
+
+  ruby-forms:
+    # Each form of Ruby file the action finds, alone in the tree with a
+    # finding, fails the run: RuboCop is given every file the list holds,
+    # whether or not its own file patterns would have picked the name.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - file: case/greet.tool
+            shebang: "#!/usr/bin/env ruby"
+          - file: case/Brewfile.extra
+            shebang: ""
+          - file: case/fastlane/Appfile
+            shebang: ""
+          - file: case/fastlane/Matchfile
+            shebang: ""
+          - file: case/fastlane/Pluginfile
+            shebang: ""
+          - file: case/greet.rb
+            shebang: ""
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add the file, with a string quoted the way the configuration refuses
+        env:
+          FILE: ${{ matrix.file }}
+          SHEBANG: ${{ matrix.shebang }}
+        run: |
+          mkdir -p "$(dirname "$FILE")"
+          {
+            if [ -n "$SHEBANG" ]; then printf '%s\n' "$SHEBANG"; fi
+            printf "# frozen_string_literal: true\n\nputs 'hello'\n"
+          } >"$FILE"
+          git add "$FILE"
+      - name: The action reports it
+        id: judged
+        continue-on-error: true
+        uses: ./
+      - name: Require that it failed
+        env:
+          OUTCOME: ${{ steps.judged.outcome }}
+        run: test "$OUTCOME" = failure
+
+  ruby-skipped:
+    # A tree that tracks no Ruby passes without the Ruby image being pulled at
+    # all: the largest download the action makes is for the repositories that
+    # need it.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave this repository's own Gemfile out of the tracked files
+        run: git rm -q --cached lib/rubocop/Gemfile
+      - name: The action passes the tree
+        uses: ./
+      - name: Require that the image was not pulled
+        run: test -z "$(docker image ls --quiet public.ecr.aws/docker/library/ruby)"
+
+  ruby-isolated:
+    # What a caller's job or checkout could set for Ruby, Bundler or RuboCop is
+    # planted - RUBOCOP_OPTS and Bundler settings in the job's environment, a
+    # .bundle/config, a Gemfile and a .ruby-version in the checkout - and none
+    # of it reaches the container: a clean tree still passes, a finding
+    # RUBOCOP_OPTS would hide still fails, and a lock entry whose checksum is
+    # wrong still fails although the planted settings switch checksums off.
+    runs-on: ubuntu-24.04
+    env:
+      RUBOCOP_OPTS: --only Layout/LineLength
+      BUNDLE_DISABLE_CHECKSUM_VALIDATION: "true"
+      BUNDLE_FROZEN: "false"
+      BUNDLE_GEMFILE: Gemfile
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Plant a .bundle/config, a Gemfile and a .ruby-version, and add a clean script
+        run: |
+          mkdir -p .bundle case
+          printf -- '---\nBUNDLE_DISABLE_CHECKSUM_VALIDATION: "true"\nBUNDLE_FROZEN: "false"\n' >.bundle/config
+          printf '# frozen_string_literal: true\n\nsource "https://rubygems.org"\n' >Gemfile
+          echo 2.7.8 >.ruby-version
+          printf '# frozen_string_literal: true\n\nputs "hello"\n' >case/greet.rb
+          git add case .bundle Gemfile .ruby-version
+      - name: The action passes it
+        uses: ./
+      - name: Quote its string the other way
+        run: |
+          cat > case/greet.rb <<'FILE'
+          # frozen_string_literal: true
+
+          puts 'hello'
+          FILE
+      - name: The action reports it
+        id: finding
+        continue-on-error: true
+        uses: ./
+      - name: Restore it, and give one gem in the lock a checksum that is not its own
+        run: |
+          git restore case/greet.rb
+          sed -i "s/^\(  rainbow (.*) sha256=\).*/\1$(printf '0%.0s' $(seq 64))/" lib/rubocop/Gemfile.lock
+          grep -q "^  rainbow (.*) sha256=0000" lib/rubocop/Gemfile.lock
+      - name: The action refuses it
+        id: checksum
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          FINDING: ${{ steps.finding.outcome }}
+          CHECKSUM: ${{ steps.checksum.outcome }}
+        run: test "$FINDING" = failure && test "$CHECKSUM" = failure
+
   conclusion:
     # The one check branch protection requires, so adding or renaming a job
     # above needs no settings change - only this list.
-    needs: [lint, baseline, finds, sources, python, shell, starlark, formats]
+    needs:
+      - lint
+      - baseline
+      - finds
+      - sources
+      - python
+      - shell
+      - starlark
+      - formats
+      - ruby
+      - ruby-forms
+      - ruby-skipped
+      - ruby-isolated
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -359,8 +578,14 @@ jobs:
           SHELL_FILES: ${{ needs.shell.result }}
           STARLARK: ${{ needs.starlark.result }}
           FORMATS: ${{ needs.formats.result }}
+          RUBY: ${{ needs.ruby.result }}
+          RUBY_FORMS: ${{ needs.ruby-forms.result }}
+          RUBY_SKIPPED: ${{ needs.ruby-skipped.result }}
+          RUBY_ISOLATED: ${{ needs.ruby-isolated.result }}
         run: >-
           test "$LINT" = success && test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
           test "$PYTHON" = success && test "$SHELL_FILES" = success &&
-          test "$STARLARK" = success && test "$FORMATS" = success
+          test "$STARLARK" = success && test "$FORMATS" = success &&
+          test "$RUBY" = success && test "$RUBY_FORMS" = success &&
+          test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success

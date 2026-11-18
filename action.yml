@@ -1,9 +1,9 @@
 name: ci-baseline
 description: >-
   The checks every repository runs: actionlint, zizmor, shellcheck, shfmt and
-  shell-trap-lint over every shell file, ruff, buildifier, prettier formatting,
-  ASCII-only text, GitHub-hosted runners only, and composite steps that call
-  scripts.
+  shell-trap-lint over every shell file, ruff, RuboCop, buildifier, prettier
+  formatting, ASCII-only text, GitHub-hosted runners only, and composite steps
+  that call scripts.
 author: Curlew Labs
 branding:
   icon: check-square
@@ -58,6 +58,12 @@ runs:
       if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
       shell: sh
       run: '"$GITHUB_ACTION_PATH/lib/ruff.sh"'
+    # Runs in its own Ruby container, and only where Ruby is tracked, so it
+    # needs the file list and not the tools step.
+    - name: rubocop
+      if: ${{ !cancelled() && steps.files.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/rubocop.sh"'
     - name: buildifier
       if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
       shell: sh

@@ -2,6 +2,11 @@
 # Install the pinned tools the checks run into $RUNNER_TEMP/ci-baseline, and
 # verify each download's digest. A runner image's own copies move whenever the
 # image does; these move only by a bump a pull request makes.
+#
+#   install-tools.sh        every tool but the Ruby image
+#   install-tools.sh ruby   pull the Ruby image RuboCop runs in, by its digest,
+#                           and print its reference; lib/rubocop.sh asks for it
+#                           only where Ruby is tracked
 set -eu
 
 # renovate: datasource=github-releases depName=rhysd/actionlint
@@ -22,6 +27,13 @@ PRETTIER_VERSION=3.9.10
 # it has no digest below; the tag beside it is the release that commit is.
 # renovate: datasource=github-tags depName=curlewlabs-com/shell-trap-lint pin=digest
 SHELL_TRAP_LINT_COMMIT=a7083827636531eaa762993eab14f20244eaa67d # v0.1.3
+# The official Ruby image RuboCop runs in, by tag and by the digest of its
+# multi-architecture index, which is what is pulled; the tag is for a reader
+# and for the update. Pulled from the Amazon ECR Public mirror of Docker's
+# official images, the same bytes under the same digest as Docker Hub, which
+# limits anonymous pulls per address and hosted runners share addresses.
+# renovate: datasource=docker depName=public.ecr.aws/docker/library/ruby pin=image
+RUBY_VERSION=4.0.9-slim-trixie@sha256:d8cb2c0714bdaba0f318af897a01d2dbde3cfa8e62d47e99cea55feb13c0e90d
 # A bump moves a version and leaves these stale, since a digest cannot be
 # typed from a version; tools/refresh_tools.py downloads each asset and
 # rewrites them.
@@ -63,6 +75,26 @@ Linux-aarch64)
 	exit 1
 	;;
 esac
+
+if [ "${1:-}" = ruby ]; then
+	image=public.ecr.aws/docker/library/ruby:$RUBY_VERSION
+	if ! command -v docker >/dev/null; then
+		echo "ci-baseline: RuboCop runs in a container, and this runner has no docker; the README names the runners the action supports" >&2
+		exit 1
+	fi
+	# Docker refuses a pull whose content does not hash to the digest named.
+	attempt=1
+	until docker pull --quiet "$image" >&2; do
+		if [ "$attempt" -ge 3 ]; then
+			echo "ci-baseline: could not pull $image" >&2
+			exit 1
+		fi
+		attempt=$((attempt + 1))
+		sleep 5
+	done
+	echo "$image"
+	exit 0
+fi
 
 bin=$RUNNER_TEMP/ci-baseline/bin
 work=$RUNNER_TEMP/ci-baseline/download
