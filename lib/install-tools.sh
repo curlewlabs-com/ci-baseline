@@ -31,7 +31,8 @@ SHELL_TRAP_LINT_COMMIT=a7083827636531eaa762993eab14f20244eaa67d # v0.1.3
 # multi-architecture index, which is what is pulled; the tag is for a reader
 # and for the update. Pulled from the Amazon ECR Public mirror of Docker's
 # official images, the same bytes under the same digest as Docker Hub, which
-# limits anonymous pulls per address and hosted runners share addresses. The
+# limits anonymous pulls per address and hosted runners share addresses; ECR
+# Public limits them too, so Docker Hub is the fallback (pull_image below). The
 # full image, not the slim one: Bundler builds json and prism, which RuboCop
 # needs, from source even where the image's Ruby already carries the same
 # versions, and only the full image has the compiler.
@@ -79,24 +80,72 @@ Linux-aarch64)
 	;;
 esac
 
+# pull_image REFERENCE: pull REFERENCE, a tag and digest, and print it.
+# Returns 0 when pulled, and 2 when this registry could not serve it, so the
+# next registry may. Docker refuses content that does not hash to the digest
+# named, and that refusal exits at once, never retried or passed to the other
+# registry: the same digest served differently is what the pin exists to stop.
+# A registry that answers that it has no such image is left for the next one
+# without a retry. Every other failure - a rate limit, a 5xx, a network or TLS
+# failure, an attempt cut off by the timeout - is retried: Docker words these
+# many ways, and a list of them is the list that misses one, while asking again
+# costs only the backoff. A registry gets PULL_ATTEMPTS attempts, each ended by
+# a TERM after PULL_TIMEOUT seconds and a KILL 10 seconds later, 5 and then 15
+# seconds apart, so whatever Docker prints or fails to print the two registries
+# spend at most 2 * (3 * 190 + 20) = 1180 seconds before the step fails; with
+# lib/rubocop.sh's 900-second run that is well inside a job's default 360
+# minutes.
+PULL_ATTEMPTS=3
+PULL_TIMEOUT=180
+pull_image() {
+	log=$(mktemp)
+	attempt=1
+	delay=5
+	while :; do
+		status=0
+		timeout -k 10 "$PULL_TIMEOUT" docker pull --quiet "$1" >"$log" 2>&1 || status=$?
+		if [ "$status" -eq 0 ]; then
+			rm -f "$log"
+			echo "$1"
+			return 0
+		fi
+		cat "$log" >&2
+		if grep -Eqi 'verification failed|digest mismatch|unexpected commit digest|failed precondition' "$log"; then
+			echo "ci-baseline: $1 does not have the pinned digest" >&2
+			exit 1
+		fi
+		if grep -Eqi 'manifest unknown|not found|pull access denied' "$log"; then
+			echo "ci-baseline: $1 is not served by this registry" >&2
+			rm -f "$log"
+			return 2
+		fi
+		if [ "$attempt" -ge "$PULL_ATTEMPTS" ]; then
+			echo "ci-baseline: $1 failed on all $PULL_ATTEMPTS attempts" >&2
+			rm -f "$log"
+			return 2
+		fi
+		echo "ci-baseline: $1 failed (attempt $attempt of $PULL_ATTEMPTS); retrying in $delay seconds" >&2
+		sleep "$delay"
+		attempt=$((attempt + 1))
+		delay=$((delay * 3))
+	done
+}
+
 if [ "${1:-}" = ruby ]; then
-	image=public.ecr.aws/docker/library/ruby:$RUBY_VERSION
 	if ! command -v docker >/dev/null; then
 		echo "ci-baseline: RuboCop runs in a container, and this runner has no docker; the README names the runners the action supports" >&2
 		exit 1
 	fi
-	# Docker refuses a pull whose content does not hash to the digest named.
-	attempt=1
-	until docker pull --quiet "$image" >&2; do
-		if [ "$attempt" -ge 3 ]; then
-			echo "ci-baseline: could not pull $image" >&2
-			exit 1
+	for repository in public.ecr.aws/docker/library/ruby docker.io/library/ruby; do
+		status=0
+		pull_image "$repository:$RUBY_VERSION" || status=$?
+		if [ "$status" -eq 0 ]; then
+			exit 0
 		fi
-		attempt=$((attempt + 1))
-		sleep 5
+		echo "ci-baseline: $repository could not serve the Ruby image; trying the next registry" >&2
 	done
-	echo "$image"
-	exit 0
+	echo "ci-baseline: could not pull the Ruby image from ECR Public or Docker Hub" >&2
+	exit 1
 fi
 
 bin=$RUNNER_TEMP/ci-baseline/bin

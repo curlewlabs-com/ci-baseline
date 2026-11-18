@@ -493,8 +493,63 @@ jobs:
         run: git rm -q --cached lib/rubocop/Gemfile
       - name: The action passes the tree
         uses: ./
-      - name: Require that the image was not pulled
-        run: test -z "$(docker image ls --quiet public.ecr.aws/docker/library/ruby)"
+      - name: Require that the image was not pulled from either registry
+        run: |
+          repositories=$(docker image ls --format '{{.Repository}}')
+          if echo "$repositories" | grep -E '(^|/)ruby$'; then
+            exit 1
+          fi
+
+  ruby-fallback:
+    # ECR Public made unreachable - its name resolved to a closed local port -
+    # and the image still arrives, from Docker Hub under the pinned digest,
+    # after ECR Public's refusals are retried; RuboCop then passes a clean file.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Point ECR Public at a closed port
+        run: |
+          echo "127.0.0.1 public.ecr.aws" | sudo tee -a /etc/hosts
+          if curl -sS --max-time 10 -o /dev/null https://public.ecr.aws/v2/; then
+            echo "public.ecr.aws is still reachable" >&2
+            exit 1
+          fi
+      - name: Pull the image
+        id: pull
+        run: |
+          lib/install-tools.sh ruby 2>"$RUNNER_TEMP/pull.log" >"$RUNNER_TEMP/pulled" || {
+            cat "$RUNNER_TEMP/pull.log"
+            exit 1
+          }
+          cat "$RUNNER_TEMP/pull.log"
+          echo "reference=$(cat "$RUNNER_TEMP/pulled")" >>"$GITHUB_OUTPUT"
+      - name: Require the fallback, after retries, to have pulled the pinned digest
+        env:
+          REFERENCE: ${{ steps.pull.outputs.reference }}
+        run: |
+          pinned=$(sed -n 's/^RUBY_VERSION=.*@//p' lib/install-tools.sh)
+          case "$REFERENCE" in docker.io/library/ruby:*"@$pinned") ;; *)
+            echo "pulled $REFERENCE, not Docker Hub's $pinned" >&2
+            exit 1
+            ;;
+          esac
+          images=$(docker image ls --digests --format '{{.Repository}} {{.Digest}}')
+          echo "$images"
+          echo "$images" | grep -Ex "(docker\.io/library/)?ruby $pinned"
+          if echo "$images" | grep -F public.ecr.aws; then
+            exit 1
+          fi
+          # ECR Public's two retries; Docker Hub may retry too, and still pass.
+          test "$(grep -c '^ci-baseline: public\.ecr\.aws/.* failed (attempt' "$RUNNER_TEMP/pull.log")" -eq 2
+      - name: Add a clean Ruby file
+        run: |
+          mkdir -p case
+          printf '# frozen_string_literal: true\n\nputs "hello"\n' >case/greet.rb
+          git add case
+      - name: The action passes it with the image from Docker Hub
+        uses: ./
 
   ruby-isolated:
     # What a caller's job or checkout could set for Ruby, Bundler or RuboCop is
@@ -565,6 +620,7 @@ jobs:
       - ruby-forms
       - ruby-skipped
       - ruby-isolated
+      - ruby-fallback
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -582,10 +638,12 @@ jobs:
           RUBY_FORMS: ${{ needs.ruby-forms.result }}
           RUBY_SKIPPED: ${{ needs.ruby-skipped.result }}
           RUBY_ISOLATED: ${{ needs.ruby-isolated.result }}
+          RUBY_FALLBACK: ${{ needs.ruby-fallback.result }}
         run: >-
           test "$LINT" = success && test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
           test "$PYTHON" = success && test "$SHELL_FILES" = success &&
           test "$STARLARK" = success && test "$FORMATS" = success &&
           test "$RUBY" = success && test "$RUBY_FORMS" = success &&
-          test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success
+          test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success &&
+          test "$RUBY_FALLBACK" = success

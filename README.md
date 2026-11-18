@@ -82,9 +82,13 @@ commit in [`action.yml`](action.yml). A runner image's own copies of these tools
 are not used, because they move whenever the image does.
 
 RuboCop runs in a container, and only where a repository tracks Ruby: the
-official Ruby image, pulled from Amazon ECR Public's copy of Docker's official
-images by the digest in `lib/install-tools.sh`, which Docker refuses a pull not
-to match. RuboCop and every gem it needs are installed inside it from
+official Ruby image, pulled by the digest in `lib/install-tools.sh`, which
+Docker refuses a pull not to match. It comes from Amazon ECR Public's copy of
+Docker's official images, or from Docker Hub when ECR Public cannot serve it:
+each registry gets three attempts against rate limits, server errors, network
+failures and any other failure but two: a registry without the image is left
+for the other at once, and an image that does not match the digest is never
+retried or fetched from the other. RuboCop and every gem it needs are installed inside it from
 [`lib/rubocop/Gemfile.lock`](lib/rubocop/Gemfile.lock) with the lock frozen, so
 Bundler refuses a gem whose sha256 is not the one the lock's `CHECKSUMS` record,
 and the image's compiler builds the ones with a C extension. What crosses into the container is
