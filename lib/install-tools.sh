@@ -21,7 +21,7 @@ PRETTIER_VERSION=3.9.10
 # shell-trap-lint is fetched as a commit, which git verifies by its name, so
 # it has no digest below; the tag beside it is the release that commit is.
 # renovate: datasource=github-tags depName=curlewlabs-com/shell-trap-lint pin=digest
-SHELL_TRAP_LINT_COMMIT=1910d5e1ddecbf83ca9e91bc44636722ee85980e # v0.1.2
+SHELL_TRAP_LINT_COMMIT=a7083827636531eaa762993eab14f20244eaa67d # v0.1.3
 # A bump moves a version and leaves these stale, since a digest cannot be
 # typed from a version; tools/refresh_tools.py downloads each asset and
 # rewrites them.
