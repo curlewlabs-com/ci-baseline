@@ -1,7 +1,6 @@
 """Finish a tool bump in CI: rewrite the digests beside the versions.
 
-A bump moves `ACTIONLINT_VERSION`, `SHELLCHECK_VERSION` or `ZIZMOR_VERSION` in
-lib/install-tools.sh. The sha256 of each release asset the installer fetches
+A bump moves a `*_VERSION` line in lib/install-tools.sh. The sha256 of each release asset the installer fetches
 follows from the version and cannot be typed from it, so this downloads each
 asset for the versions the file now names and writes its digest beside it.
 
@@ -24,40 +23,45 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "lib/install-tools.sh"
 
-RELEASES = "https://github.com/{repo}/releases/download/{version}/"
+RELEASES = "https://github.com/{repo}/releases/download/{{version}}/"
 
-# Each digest line the installer checks: the version line it follows, the
-# repository that publishes the asset, and the asset's name for that version.
+# Each digest line the installer checks: the version line it follows, and the
+# asset's URL for that version, with {version} the line's value and {bare} the
+# value without a leading "v".
 ASSETS = {
     "ACTIONLINT_SHA256_X86_64": (
         "ACTIONLINT_VERSION",
-        "rhysd/actionlint",
-        "actionlint_{bare}_linux_amd64.tar.gz",
+        RELEASES.format(repo="rhysd/actionlint")
+        + "actionlint_{bare}_linux_amd64.tar.gz",
     ),
     "ACTIONLINT_SHA256_AARCH64": (
         "ACTIONLINT_VERSION",
-        "rhysd/actionlint",
-        "actionlint_{bare}_linux_arm64.tar.gz",
+        RELEASES.format(repo="rhysd/actionlint")
+        + "actionlint_{bare}_linux_arm64.tar.gz",
     ),
     "SHELLCHECK_SHA256_X86_64": (
         "SHELLCHECK_VERSION",
-        "koalaman/shellcheck",
-        "shellcheck-{version}.linux.x86_64.tar.xz",
+        RELEASES.format(repo="koalaman/shellcheck")
+        + "shellcheck-{version}.linux.x86_64.tar.xz",
     ),
     "SHELLCHECK_SHA256_AARCH64": (
         "SHELLCHECK_VERSION",
-        "koalaman/shellcheck",
-        "shellcheck-{version}.linux.aarch64.tar.xz",
+        RELEASES.format(repo="koalaman/shellcheck")
+        + "shellcheck-{version}.linux.aarch64.tar.xz",
     ),
     "ZIZMOR_SHA256_X86_64": (
         "ZIZMOR_VERSION",
-        "zizmorcore/zizmor",
-        "zizmor-x86_64-unknown-linux-gnu.tar.gz",
+        RELEASES.format(repo="zizmorcore/zizmor")
+        + "zizmor-x86_64-unknown-linux-gnu.tar.gz",
     ),
     "ZIZMOR_SHA256_AARCH64": (
         "ZIZMOR_VERSION",
-        "zizmorcore/zizmor",
-        "zizmor-aarch64-unknown-linux-gnu.tar.gz",
+        RELEASES.format(repo="zizmorcore/zizmor")
+        + "zizmor-aarch64-unknown-linux-gnu.tar.gz",
+    ),
+    "PRETTIER_SHA256": (
+        "PRETTIER_VERSION",
+        "https://registry.npmjs.org/prettier/-/prettier-{version}.tgz",
     ),
 }
 
@@ -99,12 +103,10 @@ def _download(url: str) -> bytes:
 def refresh(text: str) -> str:
     """`text` with each digest line set to its asset's sha256."""
     digests: dict[str, str] = {}
-    for name, (version_line, repo, asset) in ASSETS.items():
+    for name, (version_line, template) in ASSETS.items():
         _one(text, name)
         version = _one(text, version_line)["value"]
-        url = RELEASES.format(repo=repo, version=version) + asset.format(
-            version=version, bare=version.removeprefix("v")
-        )
+        url = template.format(version=version, bare=version.removeprefix("v"))
         digests[name] = hashlib.sha256(_download(url)).hexdigest()
     for name, sha256 in digests.items():
         match = _one(text, name)

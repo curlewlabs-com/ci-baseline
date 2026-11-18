@@ -1,8 +1,8 @@
 name: ci-baseline
 description: >-
   The checks every repository runs: actionlint, zizmor, shellcheck over every
-  shell file, ASCII-only text, GitHub-hosted runners only, and composite steps
-  that call scripts.
+  shell file, prettier formatting, ASCII-only text, GitHub-hosted runners
+  only, and composite steps that call scripts.
 author: Curlew Labs
 branding:
   icon: check-square
@@ -21,7 +21,7 @@ runs:
     - name: action-run-lint
       if: ${{ !cancelled() }}
       uses: curlewlabs-com/action-run-lint@09a094e71cff461987330467a871ad6d1026df4c # v0.1.0
-    - name: Install the pinned actionlint, shellcheck and zizmor
+    - name: Install the pinned actionlint, shellcheck, zizmor and prettier
       id: tools
       if: ${{ !cancelled() }}
       shell: sh
@@ -40,3 +40,7 @@ runs:
       if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
       shell: sh
       run: '"$GITHUB_ACTION_PATH/lib/shellcheck.sh"'
+    - name: prettier
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/prettier.sh"'

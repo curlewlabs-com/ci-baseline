@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install the pinned actionlint, shellcheck and zizmor into
+# Install the pinned actionlint, shellcheck, zizmor and prettier into
 # $RUNNER_TEMP/ci-baseline/bin and verify each download's digest. A runner
 # image's own copies move whenever the image does; these move only by a bump
 # a pull request makes.
@@ -11,6 +11,8 @@ ACTIONLINT_VERSION=v1.7.12
 SHELLCHECK_VERSION=v0.11.0
 # renovate: datasource=github-releases depName=zizmorcore/zizmor
 ZIZMOR_VERSION=v1.31.1
+# renovate: datasource=npm depName=prettier
+PRETTIER_VERSION=3.9.10
 # A bump moves a version and leaves these stale, since a digest cannot be
 # typed from a version; tools/refresh_tools.py downloads each asset and
 # rewrites them.
@@ -20,6 +22,9 @@ SHELLCHECK_SHA256_X86_64=8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97
 SHELLCHECK_SHA256_AARCH64=12b331c1d2db6b9eb13cfca64306b1b157a86eb69db83023e261eaa7e7c14588
 ZIZMOR_SHA256_X86_64=d185f726bdaf92df78273217dfdd24ebcd6b0ef48cf3ce776ff5762b6e138c99
 ZIZMOR_SHA256_AARCH64=37eebbd5762a44f262d94875431b14a6d2402991e90a685113ea97b8b41be833
+# prettier is JavaScript with no dependencies, so one tarball serves every
+# architecture.
+PRETTIER_SHA256=9dc72045591793dff972432fb78722f7ab91aaa90a7fa8c1261ede55969246b7
 
 case "$(uname -s)-$(uname -m)" in
 Linux-x86_64)
@@ -71,7 +76,14 @@ fetch "https://github.com/zizmorcore/zizmor/releases/download/$ZIZMOR_VERSION/zi
 tar -xzf "$work/zizmor.tar.gz" -C "$work"
 mv "$work/zizmor" "$bin/zizmor"
 
+fetch "https://registry.npmjs.org/prettier/-/prettier-$PRETTIER_VERSION.tgz" \
+	"$PRETTIER_SHA256" "$work/prettier.tgz"
+tar -xzf "$work/prettier.tgz" -C "$work"
+rm -rf "$bin/prettier"
+mv "$work/package" "$bin/prettier"
+
 rm -rf "$work"
 "$bin/actionlint" -version | head -n 1
 "$bin/shellcheck" --version | sed -n 2p
 "$bin/zizmor" --version
+echo "prettier $(node "$bin/prettier/bin/prettier.cjs" --version)"

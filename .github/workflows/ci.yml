@@ -122,10 +122,38 @@ jobs:
           OUTCOME: ${{ steps.judged.outcome }}
         run: test "$OUTCOME" = failure
 
+  formats:
+    # A tracked file prettier would format differently fails the run, and a
+    # file the repository's .prettierignore names is left alone.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add a JSON file prettier ignores, by name
+        run: |
+          printf '{"kept":   "as captured"}\n' > captured.json
+          printf 'captured.json\n' > .prettierignore
+          git add captured.json .prettierignore
+      - name: The action passes it
+        uses: ./
+      - name: Add a JSON file prettier would reformat
+        run: |
+          printf '{"a":   1}\n' > unformatted.json
+          git add unformatted.json
+      - name: The action reports it
+        id: judged
+        continue-on-error: true
+        uses: ./
+      - name: Require that it failed
+        env:
+          OUTCOME: ${{ steps.judged.outcome }}
+        run: test "$OUTCOME" = failure
+
   conclusion:
     # The one check branch protection requires, so adding or renaming a job
     # above needs no settings change - only this list.
-    needs: [lint, baseline, finds, sources]
+    needs: [lint, baseline, finds, sources, formats]
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -135,4 +163,5 @@ jobs:
           BASELINE: ${{ needs.baseline.result }}
           FINDS: ${{ needs.finds.result }}
           SOURCES: ${{ needs.sources.result }}
-        run: test "$LINT" = success && test "$BASELINE" = success && test "$FINDS" = success && test "$SOURCES" = success
+          FORMATS: ${{ needs.formats.result }}
+        run: test "$LINT" = success && test "$BASELINE" = success && test "$FINDS" = success && test "$SOURCES" = success && test "$FORMATS" = success

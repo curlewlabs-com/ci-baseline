@@ -14,6 +14,7 @@ and the policy lives in one place:
 | [actionlint](https://github.com/rhysd/actionlint)                          | workflow errors, and shellcheck findings in workflow `run:` blocks                         |
 | [zizmor](https://github.com/zizmorcore/zizmor)                             | workflow and action security findings, at any severity                                     |
 | [shellcheck](https://github.com/koalaman/shellcheck)                       | any finding in a tracked shell file: `*.sh`, `*.bash`, or a `sh`, `bash` or `dash` shebang |
+| [prettier](https://prettier.io)                                            | a tracked file prettier formats differently, under the repository's prettier configuration |
 
 Each check runs whatever the one before it found, so one run reports all of
 them, and any failure fails the action.
@@ -42,17 +43,22 @@ baseline:
     - uses: curlewlabs-com/ci-baseline@<sha> # vX.Y.Z
 ```
 
-It needs `python3` 3.12 or newer, `git` and mikefarah's `yq`, which GitHub's
-Ubuntu images ship.
+It needs `python3` 3.12 or newer, `node`, `git` and mikefarah's `yq`, which
+GitHub's Ubuntu images ship.
 
 ## What it pins
 
-actionlint, shellcheck and zizmor are downloaded from their GitHub releases at
-the versions in [`lib/install-tools.sh`](lib/install-tools.sh), and each
-download is refused unless its sha256 matches the digest beside the version. The
-three lints above are actions pinned by commit in [`action.yml`](action.yml). A
-runner image's own copies of these tools are not used, because they move
-whenever the image does.
+actionlint, shellcheck and zizmor are downloaded from their GitHub releases, and
+prettier from the npm registry, at the versions in
+[`lib/install-tools.sh`](lib/install-tools.sh), and each download is refused
+unless its sha256 matches the digest beside the version. The three lints above
+are actions pinned by commit in [`action.yml`](action.yml). A runner image's own
+copies of these tools are not used, because they move whenever the image does.
+
+prettier is the one every repository is checked with, so a repository does not
+pin its own in `package.json`: two versions disagree about formatting whenever
+their pins differ. Its configuration and `.prettierignore` are the
+repository's own.
 
 zizmor runs with [`zizmor.yml`](zizmor.yml) and nothing the repository carries:
 not its own configuration, and not an inline ignore comment. Each exception in
