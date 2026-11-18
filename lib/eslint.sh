@@ -1,13 +1,16 @@
 #!/bin/sh
 # Run eslint over every tracked JavaScript and TypeScript file with the one
 # configuration in lint/, from the toolchain lib/install-lint.sh installed.
-# eslint reads no configuration of the repository's: a rule, a severity or a
-# plugin there changes nothing, and .ci-baseline/eslint.json states only
-# ignored paths, with reasons.
+# LAYER is `baseline`, the rules that need no type information, or `typed`,
+# both layers with types read through the repository's own installed
+# dependencies. eslint reads no configuration of the repository's: a rule, a
+# severity or a plugin there changes nothing, and .ci-baseline/eslint.json
+# states only ignored paths, with reasons, and tsconfig projects.
 set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
 lint=${CI_BASELINE_LINT_DIR:-$RUNNER_TEMP/ci-baseline/lint}
 files=${CI_BASELINE_FILES_DIR:-$RUNNER_TEMP/ci-baseline/files}
+layer=${LAYER:?LAYER is baseline or typed}
 # shellcheck source=lib/lint-env.sh
 . "$here/lib/lint-env.sh"
 cd "$(git rev-parse --show-toplevel)"
@@ -15,11 +18,11 @@ if [ ! -s "$files/js" ]; then
 	# The statement is still read, so an ignore entry left behind when the last
 	# file it matched went fails here, rather than surviving to excuse whatever
 	# file is added next. Nothing was installed, so the plan goes nowhere.
-	python3 -I "$here/lib/eslint_plan.py" "$files" /dev/null /dev/null
+	python3 -I "$here/lib/eslint_plan.py" "$layer" "$files" /dev/null /dev/null
 	echo "ci-baseline: no JavaScript or TypeScript to lint"
 	exit 0
 fi
-python3 -I "$here/lib/eslint_plan.py" "$files" "$lint/plan.json" "$lint/files"
+python3 -I "$here/lib/eslint_plan.py" "$layer" "$files" "$lint/plan.json" "$lint/files"
 if [ ! -s "$lint/files" ]; then
 	echo "ci-baseline: every JavaScript and TypeScript file is ignored by .ci-baseline/eslint.json"
 	exit 0

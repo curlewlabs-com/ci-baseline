@@ -1,0 +1,9 @@
+{
+  "name": "ci-baseline-eslint-cases-node-types",
+  "private": true,
+  "description": "The real node:test declarations tests/eslint_cases.py lints its typed cases against, at the release the repositories that run node:test use.",
+  "license": "MIT OR Apache-2.0",
+  "dependencies": {
+    "@types/node": "24.19.2"
+  }
+}

@@ -7,8 +7,9 @@
 # It reads the ci-baseline commit the repository's workflows pin, fetches that
 # commit by its full name into a cache of its own (git refuses an object whose
 # content does not hash to that name), and runs that commit's check, so the
-# result is the one CI gives for the same tree. Nothing is written in the
-# checkout.
+# result is the one CI gives for the same tree. With TypeScript tracked it runs
+# both layers with types, which needs the repository's dependencies installed
+# first; otherwise the baseline layer. Nothing is written in the checkout.
 #
 # Needs git, mikefarah's yq, python3 3.12 or newer, and node ^20.19, ^22.13 or
 # 24 and newer with npm.
@@ -32,7 +33,7 @@ else
 		if [ -f "$workflow" ]; then
 			yq -r '.jobs[].steps[]?.uses // ""' "$workflow"
 		fi
-	done | grep -E '^curlewlabs-com/ci-baseline@[0-9a-f]{40}$' | sed 's/.*@//' | sort -u || true)
+	done | grep -E '^curlewlabs-com/ci-baseline(/typed)?@[0-9a-f]{40}$' | sed 's/.*@//' | sort -u || true)
 fi
 case $pins in
 "")
@@ -86,5 +87,11 @@ mkdir -p "$RUNNER_TEMP"
 (cd "$root" && "$here/lib/tracked-files.sh")
 rm -rf "$CI_BASELINE_FILES_DIR"
 mv "$RUNNER_TEMP/ci-baseline/files" "$CI_BASELINE_FILES_DIR"
+if grep -qE '\.(ts|mts|cts|tsx)$' "$CI_BASELINE_FILES_DIR/js"; then
+	LAYER=typed
+else
+	LAYER=baseline
+fi
+export LAYER
 cd "$root"
 exec "$here/lib/eslint.sh"
