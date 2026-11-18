@@ -1,7 +1,7 @@
 """The eslint check's cases: each one is a small repository the check is run on,
 and what it must report.
 
-    python3 -I tests/eslint_cases.py <install dir>
+    python3 -I tests/eslint_cases.py <install dir> <node types dir>
 
 Every exemption the configuration makes comes as a pair: what it is meant to
 allow passes, and the nearest thing it must not allow is still reported. A case
@@ -11,7 +11,10 @@ that must pass. The toolchain's own refusals are cases too, run on a copy of
 this tree.
 
 The install directory is where lib/install-lint.sh puts the toolchain once for
-every lint case; the install cases make their own.
+every lint case; the install cases make their own. The node types directory is
+an `npm ci` of tests/node-types, the real @types/node the typed cases read
+node:test's declarations from, copied into each case's repository untracked, as
+an installed dependency is.
 """
 
 from __future__ import annotations
@@ -28,13 +31,35 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+TSCONFIG = json.dumps(
+    {
+        "compilerOptions": {
+            "strict": True,
+            "noEmit": True,
+            "target": "es2022",
+            "module": "es2022",
+            "moduleResolution": "bundler",
+            "lib": ["es2022"],
+            "types": ["node"],
+        },
+        "include": ["src", "test"],
+    }
+)
+
+# Set by main(): the node_modules of an install of tests/node-types.
+NODE_MODULES: Path | None = None
+
+TYPED_REPO = {"tsconfig.json": TSCONFIG}
+
 
 @dataclass
 class Lint:
     name: str
     files: Mapping[str, str]
+    layer: str = "baseline"
     # Rule ids or messages the output must hold; empty means the run passes.
     reports: Sequence[str] = ()
+    node_types: bool = False
     env: Mapping[str, str] = field(default_factory=dict)
     executable: Sequence[str] = ()
     # A directory in the case's repository put first on PATH.
@@ -47,6 +72,9 @@ def pair(
     refused: Mapping[str, str],
     reports: Sequence[str],
     *,
+    layer: str = "baseline",
+    refused_layer: str | None = None,
+    node_types: bool = False,
     env: Mapping[str, str] | None = None,
     executable: Sequence[str] = (),
     path_first: str | None = None,
@@ -54,12 +82,28 @@ def pair(
     """The allowed case, which must pass, and the refused one, which must fail
     on each of `reports`. Both run with the same environment."""
 
-    def case(label: str, files: Mapping[str, str], want: Sequence[str]) -> Lint:
+    def case(
+        label: str, files: Mapping[str, str], case_layer: str, want: Sequence[str]
+    ) -> Lint:
         return Lint(
-            f"{name}: {label}", files, want, dict(env or {}), executable, path_first
+            f"{name}: {label}",
+            files,
+            case_layer,
+            want,
+            node_types,
+            dict(env or {}),
+            executable,
+            path_first,
         )
 
-    return [case("allowed", allowed, ()), case("refused", refused, reports)]
+    return [
+        case("allowed", allowed, layer, ()),
+        case("refused", refused, refused_layer or layer, reports),
+    ]
+
+
+def typed(files: Mapping[str, str]) -> dict[str, str]:
+    return {**TYPED_REPO, **files}
 
 
 CASES: list[Lint] = [
@@ -207,7 +251,7 @@ CASES: list[Lint] = [
         ["eslint-comments/no-unlimited-disable"],
     ),
     *pair(
-        "a disable that suppresses nothing",
+        "a disable that suppresses nothing, where no TypeScript is tracked",
         {
             "case.mjs": (
                 "// eslint-disable-next-line no-undef -- a global the page provides\n"
@@ -328,14 +372,14 @@ CASES: list[Lint] = [
     *pair(
         "the statement states nothing else",
         {
-            ".ci-baseline/eslint.json": json.dumps({"ignore": []}),
+            ".ci-baseline/eslint.json": json.dumps({"projects": []}),
             "case.mjs": "export {};\n",
         },
         {
             ".ci-baseline/eslint.json": json.dumps({"rules": {"no-undef": "off"}}),
             "case.mjs": "export {};\n",
         },
-        ["it may state only ignore"],
+        ["it may state only ignore and projects"],
     ),
     *pair(
         "nothing the checkout or the job carries turns a rule off",
@@ -369,6 +413,301 @@ CASES: list[Lint] = [
         executable=["shim/node"],
         path_first="shim",
     ),
+    *pair(
+        "a floating promise, which only types can see",
+        typed(
+            {
+                "src/main.ts": (
+                    "async function settle(): Promise<void> {}\n"
+                    "export async function run(): Promise<void> {\n"
+                    "  await settle();\n"
+                    "}\n"
+                ),
+                # JavaScript beside the package's TypeScript takes the
+                # baseline layer's rules alone, having no types to read.
+                "scripts/run.mjs": "async function settle() {}\nsettle();\n",
+            }
+        ),
+        typed(
+            {
+                "src/main.ts": (
+                    "async function settle(): Promise<void> {}\n"
+                    "export function run(): void {\n"
+                    "  settle();\n"
+                    "}\n"
+                )
+            }
+        ),
+        ["@typescript-eslint/no-floating-promises"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "node:test registrations float, its subtests do not",
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { test } from "node:test";\n'
+                    'test("outer", async (t) => {\n'
+                    '  await t.test("inner", () => {});\n'
+                    '  void t.test("detached on purpose", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { test } from "node:test";\n'
+                    'test("outer", (t) => {\n'
+                    '  t.test("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        ["no-restricted-syntax", "an unawaited t.test()"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "node:test registrations float, a test() called inside a test does not",
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { describe, test } from "node:test";\n'
+                    'test("top level", () => {});\n'
+                    'describe("group", () => {\n'
+                    '  test("in a describe", () => {});\n'
+                    "});\n"
+                    'test("awaits", async () => {\n'
+                    '  await test("inner", () => {});\n'
+                    "});\n"
+                    'test("returns", () => {\n'
+                    '  return test("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { test } from "node:test";\n'
+                    'test("outer", () => {\n'
+                    '  test("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        ["no-restricted-syntax", "a test() or it() called inside another test"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "node:test registrations float, an it() called inside an it() does not",
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { describe, it } from "node:test";\n'
+                    'it("top level", () => {});\n'
+                    'describe("group", () => {\n'
+                    '  it("in a describe", () => {});\n'
+                    "});\n"
+                    'it("awaits", async () => {\n'
+                    '  await it("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { it } from "node:test";\n'
+                    'it("outer", () => {\n'
+                    '  it("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        ["no-restricted-syntax", "a test() or it() called inside another test"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "a subtest called by a string key is a subtest",
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { test } from "node:test";\n'
+                    'test("awaits", async (t) => {\n'
+                    '  await t["test"]("inner", () => {});\n'
+                    "});\n"
+                    'test("returns", (t) => {\n'
+                    '  return t["test"]("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { test } from "node:test";\n'
+                    'test("outer", (t) => {\n'
+                    '  t["test"]("inner", () => {});\n'
+                    "});\n"
+                )
+            }
+        ),
+        ["no-restricted-syntax", 'an unawaited t["test"]()'],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "node:test's exemption is node:test's alone",
+        typed(
+            {
+                "test/a.test.ts": (
+                    'import { test } from "node:test";\ntest("outer", () => {});\n'
+                )
+            }
+        ),
+        typed(
+            {
+                "test/a.test.ts": (
+                    "async function test(): Promise<void> {}\n"
+                    "export function run(): void {\n"
+                    "  test();\n"
+                    "}\n"
+                )
+            }
+        ),
+        ["@typescript-eslint/no-floating-promises"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "what the test profile relaxes, it relaxes in tests only",
+        typed(
+            {
+                "test/relaxed.test.ts": (
+                    'const loose = JSON.parse(\'{"field": "a"}\');\n'
+                    "export const field: string = loose.field;\n"
+                    "export const caught = Promise.reject(new Error('x')).catch((e) => e);\n"
+                    "export const narrowed = JSON.stringify(1) as string;\n"
+                    "export const fake = async (): Promise<number> => 1;\n"
+                    "export async function wait(): Promise<number> {\n"
+                    "  const n = await 1;\n"
+                    "  return n;\n"
+                    "}\n"
+                )
+            }
+        ),
+        typed(
+            {
+                "src/strict.ts": (
+                    'const loose = JSON.parse(\'{"field": "a"}\');\n'
+                    "export const field: string = loose.field;\n"
+                    "export const caught = Promise.reject(new Error('x')).catch((e) => e);\n"
+                    "export const narrowed = JSON.stringify(1) as string;\n"
+                    "export const fake = async (): Promise<number> => 1;\n"
+                    "export async function wait(): Promise<number> {\n"
+                    "  const n = await 1;\n"
+                    "  return n;\n"
+                    "}\n"
+                )
+            }
+        ),
+        [
+            "@typescript-eslint/no-unsafe-member-access",
+            "@typescript-eslint/no-unsafe-assignment",
+            "@typescript-eslint/use-unknown-in-catch-callback-variable",
+            "@typescript-eslint/no-unnecessary-type-assertion",
+            "@typescript-eslint/require-await",
+            "@typescript-eslint/await-thenable",
+        ],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "the projects a repository names, and only files",
+        {
+            ".ci-baseline/eslint.json": json.dumps(
+                {"projects": ["tools/typecheck/tsconfig.json"]}
+            ),
+            "tools/typecheck/tsconfig.json": json.dumps(
+                {**json.loads(TSCONFIG), "include": ["../../src"]}
+            ),
+            "src/main.ts": (
+                "async function settle(): Promise<void> {}\n"
+                "export async function run(): Promise<void> {\n"
+                "  await settle();\n"
+                "}\n"
+            ),
+        },
+        {
+            ".ci-baseline/eslint.json": json.dumps(
+                {"projects": ["tools/typecheck/missing.json"]}
+            ),
+            "tools/typecheck/tsconfig.json": json.dumps(
+                {**json.loads(TSCONFIG), "include": ["../../src"]}
+            ),
+            "src/main.ts": "export const one = 1;\n",
+        },
+        ["project 'tools/typecheck/missing.json' is not a file"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "a TypeScript file in no project",
+        typed(
+            {
+                "src/main.ts": "export const one = 1;\n",
+                "src/env.d.ts": (
+                    "declare namespace Runtime {\n  interface Env {\n    store: string;\n  }\n}\n"
+                ),
+                # A second project below the root, which the root's does not
+                # include: each file is read through its nearest one.
+                "consumer/tsconfig.json": json.dumps(
+                    {**json.loads(TSCONFIG), "include": ["."]}
+                ),
+                "consumer/use.ts": "export const two = 2;\n",
+            }
+        ),
+        typed(
+            {
+                "src/main.ts": "export const one = 1;\n",
+                "scripts/loose.ts": "export {};\n",
+            }
+        ),
+        ["was not found by the project service"],
+        layer="typed",
+        node_types=True,
+    ),
+    *pair(
+        "a disable that suppresses nothing, judged where every rule runs",
+        typed(
+            {
+                "src/main.ts": (
+                    "// eslint-disable-next-line @typescript-eslint/no-floating-promises -- kept\n"
+                    "export const one = 1;\n"
+                )
+            }
+        ),
+        typed(
+            {
+                "src/main.ts": (
+                    "// eslint-disable-next-line @typescript-eslint/no-floating-promises -- kept\n"
+                    "export const one = 1;\n"
+                )
+            }
+        ),
+        ["Unused eslint-disable directive"],
+        # The baseline layer cannot tell a typed rule's disable suppresses
+        # nothing, so it passes it; the typed run, which sees every rule,
+        # reports it.
+        layer="baseline",
+        refused_layer="typed",
+        node_types=True,
+    ),
 ]
 
 
@@ -380,6 +719,7 @@ class Exported:
     name: str
     files: Mapping[str, str]
     reports: Sequence[str] = ()
+    typed: bool = False
 
 
 EXPORTED: list[Exported] = [
@@ -398,6 +738,29 @@ EXPORTED: list[Exported] = [
         },
         ["no-console", "tests/case.test.mjs"],
     ),
+    Exported(
+        "the exported configuration with types lints a tree of several languages:"
+        " allowed",
+        typed(
+            {
+                "test/helper_test.py": "def helper():\n    return 1\n",
+                "test/a.test.ts": "export const loose: string = JSON.parse('\"a\"');\n",
+            }
+        ),
+        typed=True,
+    ),
+    Exported(
+        "the exported configuration with types lints a tree of several languages:"
+        " refused",
+        typed(
+            {
+                "test/helper_test.py": "def helper():\n    return 1\n",
+                "test/a.test.ts": "export async function run(): Promise<void> {\n  await 1;\n  Promise.resolve();\n}\n",
+            }
+        ),
+        ["@typescript-eslint/no-floating-promises", "test/a.test.ts"],
+        typed=True,
+    ),
 ]
 
 
@@ -406,10 +769,17 @@ def exported_case(case: Exported, install: Path, scratch: Path) -> str | None:
     for name, text in case.files.items():
         (repo / name).parent.mkdir(parents=True, exist_ok=True)
         (repo / name).write_text(text)
+    options = (
+        f"{{ typed: {{ tsconfigRootDir: {json.dumps(str(repo))} }} }}"
+        if case.typed
+        else ""
+    )
     (repo / "eslint.config.mjs").write_text(
         f"import {{ baselineConfig }} from {json.dumps(str(install / 'config/rules.mjs'))};\n"
-        "export default baselineConfig();\n"
+        f"export default baselineConfig({options});\n"
     )
+    if case.typed:
+        install_node_types(repo)
     status, out = run(
         ["node", str(install / "node_modules/eslint/bin/eslint.js"), "."],
         repo,
@@ -483,8 +853,16 @@ def run(cmd: Sequence[str], cwd: Path, env: Mapping[str, str]) -> tuple[int, str
     return done.returncode, done.stdout + done.stderr
 
 
-def git_repo(path: Path, tracked: Mapping[str, str]) -> None:
+def install_node_types(repo: Path) -> None:
+    if NODE_MODULES is None:
+        raise RuntimeError("main() sets NODE_MODULES before any case runs")
+    shutil.copytree(NODE_MODULES, repo / "node_modules")
+
+
+def git_repo(path: Path, tracked: Mapping[str, str], node_types: bool) -> None:
     subprocess.run(["git", "init", "-q", "-b", "main", str(path)], check=True)
+    if node_types:
+        install_node_types(path)
     for name, text in tracked.items():
         target = path / name
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -495,13 +873,14 @@ def git_repo(path: Path, tracked: Mapping[str, str]) -> None:
 
 def lint_case(case: Lint, install: Path, scratch: Path) -> str | None:
     repo = scratch / "repo"
-    git_repo(repo, case.files)
+    git_repo(repo, case.files, case.node_types)
     for name in case.executable:
         if (repo / name).exists():
             (repo / name).chmod(0o755)
     env = {**os.environ, **case.env}
     env["RUNNER_TEMP"] = str(scratch / "runner")
     env["CI_BASELINE_LINT_DIR"] = str(install)
+    env["LAYER"] = case.layer
     if case.path_first:
         env["PATH"] = f"{repo / case.path_first}{os.pathsep}{env['PATH']}"
     status, out = run(["sh", str(ROOT / "lib/tracked-files.sh")], repo, env)
@@ -557,10 +936,12 @@ def install_case(case: Install, scratch: Path) -> str | None:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print("usage: eslint_cases.py <install dir>", file=sys.stderr)
+    global NODE_MODULES
+    if len(argv) != 3:
+        print("usage: eslint_cases.py <install dir> <node types dir>", file=sys.stderr)
         return 2
     install = Path(argv[1]).resolve()
+    NODE_MODULES = Path(argv[2]).resolve() / "node_modules"
     failed = 0
     for lint in CASES:
         with tempfile.TemporaryDirectory() as scratch:

@@ -1,0 +1,28 @@
+name: ci-baseline typed
+description: >-
+  eslint with type information, over a package whose dependencies the job has
+  already installed: both layers of ci-baseline's one configuration.
+author: Curlew Labs
+branding:
+  icon: check-square
+  color: gray-dark
+
+# A step after the type check, in the job that installed the repository's
+# dependencies, at the same commit as the `baseline` job's ci-baseline: the
+# rules are ci-baseline's, the types are the repository's.
+runs:
+  using: composite
+  steps:
+    - name: List the tracked files
+      id: files
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/../lib/tracked-files.sh"'
+    - name: Install the eslint toolchain
+      id: lint
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/../lib/install-lint.sh"'
+    - name: eslint, with types
+      shell: sh
+      env:
+        LAYER: typed
+      run: '"$GITHUB_ACTION_PATH/../lib/eslint.sh"'

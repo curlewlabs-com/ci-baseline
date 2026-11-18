@@ -85,4 +85,6 @@ runs:
     - name: eslint
       if: ${{ !cancelled() && steps.files.outcome == 'success' && steps.lint.outcome == 'success' }}
       shell: sh
+      env:
+        LAYER: baseline
       run: '"$GITHUB_ACTION_PATH/lib/eslint.sh"'

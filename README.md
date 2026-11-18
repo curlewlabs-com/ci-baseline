@@ -74,9 +74,40 @@ It needs `python3` 3.12 or newer, `node` ^20.19, ^22.13 or 24 and newer with
 `npm`, `git` and mikefarah's `yq`, which GitHub's Ubuntu images ship, and,
 where Ruby is tracked, `docker`, which they ship too.
 
+### eslint with type information
+
+The rules that read types need the repository's own dependencies installed,
+which the action does not do. A TypeScript package runs them in the job that
+installs its dependencies and type-checks, as a step after the type check, from
+the same ci-baseline commit as its `baseline` job:
+
+```yaml
+- run: npm ci # or bun install --frozen-lockfile
+- run: npm run typecheck
+- uses: curlewlabs-com/ci-baseline/typed@<sha> # vX.Y.Z
+```
+
+That step runs the whole configuration, both layers, with types read through
+each file's nearest `tsconfig.json`, or through the projects the repository
+names (below). A TypeScript file no project includes fails the run rather than
+being linted without types.
+
+A promise left floating is a finding, except node:test's own registrations:
+its runner tracks the promise each top-level `test`, `it`, `describe` or
+`suite` returns. A subtest is not tracked that way, and one left unawaited can
+be cancelled when the test that started it finishes, so a subtest is awaited or
+returned (or written `void`, to say so). node:test declares a subtest's type as
+the top-level registration's, so the subtest is found by its shape instead: a
+`.test(...)` call on any object, by name or by string (`t.test(...)`,
+`t["test"](...)`), as a statement; and a `test(...)` or `it(...)` called as a
+statement inside the callback of another. A subtest registered through an
+aliased import (`import { test as t2 } from "node:test"`), through another of
+the module's exports (`test.it(...)`, `test.describe(...)`), or through a helper
+function is not seen.
+
 ### Running eslint locally
 
-From the repository's checkout:
+From the repository's checkout, after installing its dependencies:
 
 ```sh
 <a ci-baseline checkout>/lib/lint-local.sh
@@ -84,8 +115,8 @@ From the repository's checkout:
 
 It reads the ci-baseline commit the repository's workflows pin, fetches that
 commit by its full name into `${XDG_CACHE_HOME:-~/.cache}/ci-baseline`, and runs
-that commit's check, so the result is the one CI gives. It writes nothing in the
-checkout. Any ci-baseline checkout starts it:
+that commit's check, both layers where TypeScript is tracked, so the result is
+the one CI gives. It writes nothing in the checkout. Any ci-baseline checkout starts it:
 `git clone https://github.com/curlewlabs-com/ci-baseline ~/src/ci-baseline`
 once, and `~/src/ci-baseline/lib/lint-local.sh` from then on.
 
@@ -162,7 +193,7 @@ for them; what is checked, and with which version, is not.
 | RuboCop         | nothing: [`lib/rubocop/config.yml`](lib/rubocop/config.yml) here is every repository's configuration | -                                             |
 | buildifier      | nothing: every repository gets its default warnings                                                  | -                                             |
 | prettier        | its configuration file, and `.editorconfig`                                                          | `.prettierignore`                             |
-| eslint          | `.ci-baseline/eslint.json`: ignored paths only                                                       | `ignore` there, with a reason                 |
+| eslint          | `.ci-baseline/eslint.json`: ignored paths and tsconfig projects only                                 | `ignore` there, with a reason                 |
 
 buildifier switches one warning off for one line at a
 `# buildifier: disable=<warning>` comment there, which says so beside the code.
@@ -194,22 +225,26 @@ module by its `package.json`, and not in an `.mjs`. It reads no `eslint.config.*
 `eslint-suppressions.json` of the repository's, and a configuration written in a
 comment fails the run: the only comments it accepts are line disables
 (`// eslint-disable-next-line <rule> -- <why>`) and
-`/* global <name> -- <why> */`, each with its reason, and a disable that
-suppresses nothing fails it too. A repository states only what eslint cannot
-know about it, in `.ci-baseline/eslint.json`:
+`/* global <name> -- <why> */`, each with its reason. A disable that suppresses
+nothing fails the run where every rule runs: in the `typed` step, or in the
+action's own step where no TypeScript is tracked, since there the baseline layer
+is the whole configuration. A repository states only what eslint cannot know
+about it, in `.ci-baseline/eslint.json`:
 
 ```json
 {
   "ignore": [
     { "path": "src/generated/**", "reason": "written by the generator" }
-  ]
+  ],
+  "projects": ["tools/typecheck/tsconfig.json"]
 }
 ```
 
 `ignore` takes tracked files out, each pattern (a git glob) with its reason; the
 run names every file it skips, and a pattern that matches no tracked file fails
-it. Any other key fails the run. [`lint/rules.txt`](lint/rules.txt) is every
-rule the configuration turns on, for each kind of file, and CI fails when it
+it. `projects` names the tsconfig files types are read through, for files that
+are not each under a `tsconfig.json` of their own. Any other key fails the run. [`lint/rules.txt`](lint/rules.txt) is every
+rule the configuration turns on, for each kind of file and layer, and CI fails when it
 differs from what the configuration resolves to, so a change to what is checked
 is a reviewed diff.
 
@@ -219,8 +254,9 @@ It is written for the JavaScript and TypeScript the repositories that run it
 have: `.ts` and `.d.ts` files, `.mjs`, a few `.cjs` and ES-module `.js` files,
 scripts with a `node` shebang and an extension, and tests named by the globs in
 `lint/config/rules.mjs`. Each of those has a case in
-[`tests/eslint_cases.py`](tests/eslint_cases.py). For the shapes none of them
-has yet:
+[`tests/eslint_cases.py`](tests/eslint_cases.py). In the `typed` step, the
+JavaScript beside a package's TypeScript takes the baseline layer only, since
+the typed rules read types. For the shapes none of them has yet:
 
 - **`.jsx` and `.tsx`** parse with JSX; no React or JSX rule is on.
 - **`.mts` and `.cts`** are TypeScript like `.ts`; which module system each is
@@ -236,6 +272,9 @@ has yet:
 - **A test named any other way** (`*.spec.*`, `__tests__/`) is linted as
   source.
 - **JSON, JSONC and Markdown** are not linted by eslint; prettier formats them.
+- **A node:test subtest registered through an aliased import, another of the
+  module's exports, or a helper** is not found by its shape (see "eslint with
+  type information"); none of the repositories registers a subtest at all yet.
 
 zizmor runs with [`zizmor.yml`](zizmor.yml) and nothing the repository carries:
 not its own configuration, and not an inline ignore comment. Each exception in

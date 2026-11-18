@@ -25,7 +25,9 @@ on the Ruby files.
 
 For eslint, `lib/lint-local.sh` lints `lint/` here as it stands. The eslint
 check's own cases run against an install of this tree:
-`lib/install-lint.sh <dir>`, then `python3 -I tests/eslint_cases.py <dir>`. A
+`lib/install-lint.sh <dir>`, and `npm ci --ignore-scripts` of a copy of
+`tests/node-types` (the real `@types/node` the typed cases read node:test from)
+into `<types dir>`, then `python3 -I tests/eslint_cases.py <dir> <types dir>`. A
 new exemption in the configuration comes with a pair of cases there: what it
 allows, and the nearest thing it must still report.
 `python3 -I tests/config_tarball.py` packs the configuration as a release does
