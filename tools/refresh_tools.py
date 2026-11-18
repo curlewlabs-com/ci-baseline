@@ -1,14 +1,16 @@
-"""Finish a tool bump in CI: rewrite the digests beside the versions.
+"""Finish a tool bump in CI: rewrite what follows from the versions.
 
 A bump moves a `*_VERSION` line in lib/install-tools.sh. The sha256 of each
 asset the installer fetches follows from the version and cannot be typed from
 it, so this downloads each asset for the versions the file now names and
-writes its digest beside it.
+writes its digest beside it. A RuboCop bump moves lib/rubocop/Gemfile, and
+rubocop_lock.py moves lib/rubocop/Gemfile.lock to match.
 
     python3 tools/refresh_tools.py
 
 It fails, changing nothing, when the script does not name exactly one of each
-line it reads or rewrites, or when an asset cannot be downloaded.
+line it reads or rewrites, when an asset cannot be downloaded, or when the
+lock cannot be moved without Bundler (rubocop_lock.py says when).
 """
 
 from __future__ import annotations
@@ -21,8 +23,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import rubocop_lock
+
 ROOT = Path(__file__).resolve().parents[1]
 INSTALLER = ROOT / "lib/install-tools.sh"
+GEMFILE = ROOT / "lib/rubocop/Gemfile"
+LOCK = ROOT / "lib/rubocop/Gemfile.lock"
 
 RELEASES = "https://github.com/{repo}/releases/download/{{version}}/"
 
@@ -140,11 +146,25 @@ def refresh(text: str) -> str:
     return text
 
 
+def image_ruby(text: str) -> str:
+    """The Ruby version of the image the installer pins, `4.0.9` of
+    `RUBY_VERSION=4.0.9-trixie@sha256:...`."""
+    value = _one(text, "RUBY_VERSION")["value"]
+    match = re.match(r"(\d+\.\d+\.\d+)-", value)
+    if not match:
+        raise RefreshError(f"RUBY_VERSION {value} does not start with a version")
+    return match.group(1)
+
+
 def main() -> int:
     try:
         text = INSTALLER.read_text()
         updated = refresh(text)
-    except RefreshError as e:
+        lock = LOCK.read_text()
+        relocked = rubocop_lock.rewrite(
+            GEMFILE.read_text(), lock, image_ruby(updated), _download
+        )
+    except (RefreshError, rubocop_lock.LockError) as e:
         print(f"refresh_tools: {e}", file=sys.stderr)
         return 1
     if updated != text:
@@ -152,6 +172,11 @@ def main() -> int:
         print(f"refresh_tools: rewrote the digests in {INSTALLER.relative_to(ROOT)}")
     else:
         print("refresh_tools: every digest already matches its asset")
+    if relocked != lock:
+        LOCK.write_text(relocked)
+        print(f"refresh_tools: moved {LOCK.relative_to(ROOT)} to the pinned RuboCop")
+    else:
+        print("refresh_tools: the RuboCop lock already matches the Gemfile")
     return 0
 
 
