@@ -2,9 +2,10 @@ name: ci-baseline
 description: >-
   The checks every repository runs: actionlint, zizmor, shellcheck, shfmt and
   shell-trap-lint over every shell file, ruff, RuboCop, buildifier, prettier
-  formatting, ASCII-only text, GitHub-hosted runners only, composite steps
-  that call scripts, and workflow_run triggers and action manifests GitHub
-  accepts on push and then never runs.
+  formatting, eslint's rules that need no type information, ASCII-only text,
+  GitHub-hosted runners only, composite steps that call scripts, and
+  workflow_run triggers and action manifests GitHub accepts on push and then
+  never runs.
 author: Curlew Labs
 branding:
   icon: check-square
@@ -76,3 +77,12 @@ runs:
       if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
       shell: sh
       run: '"$GITHUB_ACTION_PATH/lib/prettier.sh"'
+    - name: Install the eslint toolchain
+      id: lint
+      if: ${{ !cancelled() && steps.files.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/install-lint.sh"'
+    - name: eslint
+      if: ${{ !cancelled() && steps.files.outcome == 'success' && steps.lint.outcome == 'success' }}
+      shell: sh
+      run: '"$GITHUB_ACTION_PATH/lib/eslint.sh"'

@@ -22,6 +22,20 @@ and, with the gems in [`lib/rubocop/Gemfile.lock`](lib/rubocop/Gemfile.lock),
 `BUNDLE_GEMFILE=lib/rubocop/Gemfile bundle exec rubocop --config lib/rubocop/config.yml`
 on the Ruby files.
 
+For eslint, `lib/lint-local.sh` lints `lint/` here as it stands. The eslint
+check's own cases run against an install of this tree:
+`lib/install-lint.sh <dir>`, then `python3 -I tests/eslint_cases.py <dir>`. A
+new exemption in the configuration comes with a pair of cases there: what it
+allows, and the nearest thing it must still report.
+`python3 -I tests/config_tarball.py` packs the configuration as a release does
+and checks that the tarball holds the licences.
+
+A change to the eslint configuration, or a toolchain bump that changes what it
+resolves to, rewrites [`lint/rules.txt`](lint/rules.txt) in the same change:
+`node <install dir>/print-rules.mjs > lint/rules.txt` from an install of the
+changed tree. A rule turned off names, beside it, what it reported that made it
+not worth having.
+
 ## Conventions
 
 - **Tests ship with the change.** A change to what the action finds includes a
@@ -66,9 +80,17 @@ updates and deletions of those tags, and publishing the GitHub Release makes the
 tag immutable. Consumers pin a release by its commit, so there is no floating
 tag to move.
 
-1. Tag a `main` commit whose required checks passed `vMAJOR.MINOR.PATCH` and
+1. On `main`, `lint/config/package.json`'s `version` is the release's, without
+   the `v`; a pull request moves it before the tag when it is not.
+2. Tag a `main` commit whose required checks passed `vMAJOR.MINOR.PATCH` and
    push the tag.
-2. Publish it: `gh release create vMAJOR.MINOR.PATCH --verify-tag`.
+3. Pack the configuration for a repository that runs eslint from its own
+   install: `python3 tools/pack_config.py .`, which writes
+   `curlewlabs-com-eslint-config-MAJOR.MINOR.PATCH.tgz` with the licence files
+   in it. `npm pack ./lint/config` alone would leave them out, since they live
+   only at the root.
+4. Publish the release with that tarball attached:
+   `gh release create vMAJOR.MINOR.PATCH --verify-tag curlewlabs-com-eslint-config-MAJOR.MINOR.PATCH.tgz`.
 
 ## License
 

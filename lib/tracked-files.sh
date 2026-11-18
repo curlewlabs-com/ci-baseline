@@ -1,12 +1,13 @@
 #!/bin/sh
 # List the tracked files each check reads, once, into
 # $RUNNER_TEMP/ci-baseline/files: `all`, and `shell`, `python`, `starlark` and
-# `ruby` by language. A file is a language's by its name, or, under any other
-# name, by its shebang, so a script under bin/ with no extension is not missed.
-# A symlink, and a tracked file deleted from the checkout, has nothing of its
-# own to read and is left out. A tracked path git has to quote (a newline, a
-# quote or a backslash in its name) cannot be read back here and fails the run
-# rather than being skipped.
+# `ruby` by language, and `js` (JavaScript and TypeScript), with `js-shebang`
+# naming the `js` files found by their shebang alone. A file is a language's
+# by its name, or, under any other name, by its shebang, so a script under
+# bin/ with no extension is not missed. A symlink, and a tracked file deleted
+# from the checkout, has nothing of its own to read and is left out. A tracked
+# path git has to quote (a newline, a quote or a backslash in its name) cannot
+# be read back here and fails the run rather than being skipped.
 set -eu
 out=$RUNNER_TEMP/ci-baseline/files
 rm -rf "$out"
@@ -18,6 +19,8 @@ git -c core.quotePath=false ls-files >"$out/listed"
 : >"$out/python"
 : >"$out/starlark"
 : >"$out/ruby"
+: >"$out/js"
+: >"$out/js-shebang"
 while IFS= read -r f; do
 	case $f in
 	\"*)
@@ -54,6 +57,9 @@ while IFS= read -r f; do
 		Matchfile | Pluginfile)
 		printf '%s\n' "$f" >>"$out/ruby"
 		;;
+	*.js | *.mjs | *.cjs | *.jsx | *.ts | *.mts | *.cts | *.tsx)
+		printf '%s\n' "$f" >>"$out/js"
+		;;
 	*)
 		if head -n 1 -- "$f" | grep -Eq '^#! *(/usr)?/bin/(env +)?(ba|da)?sh([[:space:]]|$)'; then
 			printf '%s\n' "$f" >>"$out/shell"
@@ -61,6 +67,9 @@ while IFS= read -r f; do
 			printf '%s\n' "$f" >>"$out/python"
 		elif head -n 1 -- "$f" | grep -Eq '^#! *(/usr)?(/local)?/bin/(env +)?(j?ruby|rake)[0-9.]*([[:space:]]|$)'; then
 			printf '%s\n' "$f" >>"$out/ruby"
+		elif head -n 1 -- "$f" | grep -Eq '^#! *(/usr)?(/local)?/bin/(env +(-S +)?)?(node|bun|deno)([[:space:]]|$)'; then
+			printf '%s\n' "$f" >>"$out/js"
+			printf '%s\n' "$f" >>"$out/js-shebang"
 		fi
 		;;
 	esac

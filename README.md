@@ -21,6 +21,7 @@ and the policy lives in one place:
 | [RuboCop](https://rubocop.org)                                               | any finding in a tracked Ruby file, under the one configuration in [`lib/rubocop/config.yml`](lib/rubocop/config.yml)           |
 | [buildifier](https://github.com/bazel-contrib/buildtools)                    | a tracked Starlark file buildifier formats differently, or a lint warning in one                                                |
 | [prettier](https://prettier.io)                                              | a tracked file of a kind prettier formats (Markdown, YAML, JSON, JavaScript, TypeScript, CSS, HTML) that it formats differently |
+| [eslint](https://eslint.org)                                                 | a finding in a tracked JavaScript or TypeScript file, of the rules that need no type information                                |
 
 Each check runs whatever the one before it found, so one run reports all of
 them, and any failure fails the action. A check with no file of its language to
@@ -38,6 +39,8 @@ a script with no extension is still read:
   `Appfile`, `Matchfile` and `Pluginfile`, a `Brewfile.<name>`, or a `ruby`,
   `jruby` or `rake` shebang; not `*.spec` or `*.schema`, which are as often
   something else, and not a `Brewfile*.json`, which is `brew bundle`'s lock
+- **JavaScript and TypeScript**: `*.js`, `*.mjs`, `*.cjs`, `*.jsx`, `*.ts`,
+  `*.mts`, `*.cts`, `*.tsx`, or a `node`, `bun` or `deno` shebang
 
 Only what a check can run with none of a repository's own dependencies installed
 is here. A type check, and tests, need them, and stay in the repository's own
@@ -67,9 +70,24 @@ baseline:
     - uses: curlewlabs-com/ci-baseline@<sha> # vX.Y.Z
 ```
 
-It needs `python3` 3.12 or newer, `node`, `git` and mikefarah's `yq`, which
-GitHub's Ubuntu images ship, and, where Ruby is tracked, `docker`, which they
-ship too.
+It needs `python3` 3.12 or newer, `node` ^20.19, ^22.13 or 24 and newer with
+`npm`, `git` and mikefarah's `yq`, which GitHub's Ubuntu images ship, and,
+where Ruby is tracked, `docker`, which they ship too.
+
+### Running eslint locally
+
+From the repository's checkout:
+
+```sh
+<a ci-baseline checkout>/lib/lint-local.sh
+```
+
+It reads the ci-baseline commit the repository's workflows pin, fetches that
+commit by its full name into `${XDG_CACHE_HOME:-~/.cache}/ci-baseline`, and runs
+that commit's check, so the result is the one CI gives. It writes nothing in the
+checkout. Any ci-baseline checkout starts it:
+`git clone https://github.com/curlewlabs-com/ci-baseline ~/src/ci-baseline`
+once, and `~/src/ci-baseline/lib/lint-local.sh` from then on.
 
 ## What it pins
 
@@ -108,6 +126,21 @@ the list of files to check, and the three Bundler settings
 the caller's job (its Ruby, its gems, its environment, a `RUBOCOP_OPTS`)
 reaches RuboCop.
 
+The eslint toolchain - eslint, its plugins, and the TypeScript its parser reads
+with - is installed by `npm ci --ignore-scripts` from
+[`lint/package-lock.json`](lint/package-lock.json), which npm checks package by
+package against the sha512 recorded there; a lockfile entry that names any
+source but the npm registry, or records no digest, is refused before anything
+is fetched. It installs into a directory of its own, never the caller's
+checkout. That TypeScript is the release the parser supports, and can differ
+from the one a repository type-checks with.
+
+What a job sets does not change the toolchain or what it checks: npm reads no
+configuration but its command line, the `npm_config_*`, `ESLINT_*`,
+`TSESTREE_*` and `TYPESCRIPT_ESLINT_*` variables and `NODE_OPTIONS` and
+`NODE_PATH` are cleared before it runs, and a `node` or `npm` found inside the
+checkout is refused ([`lib/lint-env.sh`](lib/lint-env.sh)).
+
 Each tool is the one every repository is checked with, so a repository does not
 pin its own to run the same check, in `package.json`, a requirements file or a
 pre-commit configuration: two versions disagree about the same file whenever
@@ -129,6 +162,7 @@ for them; what is checked, and with which version, is not.
 | RuboCop         | nothing: [`lib/rubocop/config.yml`](lib/rubocop/config.yml) here is every repository's configuration | -                                             |
 | buildifier      | nothing: every repository gets its default warnings                                                  | -                                             |
 | prettier        | its configuration file, and `.editorconfig`                                                          | `.prettierignore`                             |
+| eslint          | `.ci-baseline/eslint.json`: ignored paths only                                                       | `ignore` there, with a reason                 |
 
 buildifier switches one warning off for one line at a
 `# buildifier: disable=<warning>` comment there, which says so beside the code.
@@ -150,6 +184,58 @@ shell-trap-lint judges every shell file by its script form. Which files are
 tests is a caller's to say, so its test form's further check, that a failed
 teardown cannot fail a test, is for a repository that names its tests to run
 itself; the script form accepts a test's completion check.
+
+eslint runs with the one configuration in
+[`lint/config/rules.mjs`](lint/config/rules.mjs), which names each rule beyond
+its presets and why. JavaScript is parsed as JavaScript and TypeScript as
+TypeScript. CommonJS's globals (`require`, `module`, `__dirname`) are defined in
+a `.cjs`, and in a `.js` or a script found by its shebang, which is CommonJS or a
+module by its `package.json`, and not in an `.mjs`. It reads no `eslint.config.*` and no
+`eslint-suppressions.json` of the repository's, and a configuration written in a
+comment fails the run: the only comments it accepts are line disables
+(`// eslint-disable-next-line <rule> -- <why>`) and
+`/* global <name> -- <why> */`, each with its reason, and a disable that
+suppresses nothing fails it too. A repository states only what eslint cannot
+know about it, in `.ci-baseline/eslint.json`:
+
+```json
+{
+  "ignore": [
+    { "path": "src/generated/**", "reason": "written by the generator" }
+  ]
+}
+```
+
+`ignore` takes tracked files out, each pattern (a git glob) with its reason; the
+run names every file it skips, and a pattern that matches no tracked file fails
+it. Any other key fails the run. [`lint/rules.txt`](lint/rules.txt) is every
+rule the configuration turns on, for each kind of file, and CI fails when it
+differs from what the configuration resolves to, so a change to what is checked
+is a reviewed diff.
+
+### What the eslint configuration assumes
+
+It is written for the JavaScript and TypeScript the repositories that run it
+have: `.ts` and `.d.ts` files, `.mjs`, a few `.cjs` and ES-module `.js` files,
+scripts with a `node` shebang and an extension, and tests named by the globs in
+`lint/config/rules.mjs`. Each of those has a case in
+[`tests/eslint_cases.py`](tests/eslint_cases.py). For the shapes none of them
+has yet:
+
+- **`.jsx` and `.tsx`** parse with JSX; no React or JSX rule is on.
+- **`.mts` and `.cts`** are TypeScript like `.ts`; which module system each is
+  makes no difference, since the TypeScript compiler, not eslint, checks names
+  there.
+- **A `.js` file, and a script found by its shebang alone,** are parsed as
+  modules whatever `package.json`'s `type` says, so a CommonJS one that
+  `return`s at the top level fails to parse; CommonJS's globals are defined in
+  them, since eslint is not told which they are.
+- **A runtime's own globals** (`Bun`, `Deno`, a page's `document`) are not
+  defined: a file that uses one says so with
+  `/* global <name> -- <why> */`.
+- **A test named any other way** (`*.spec.*`, `__tests__/`) is linted as
+  source.
+- **JSON, JSONC and Markdown** are not linted by eslint; prettier formats them.
 
 zizmor runs with [`zizmor.yml`](zizmor.yml) and nothing the repository carries:
 not its own configuration, and not an inline ignore comment. Each exception in

@@ -1,0 +1,451 @@
+source.cjs @typescript-eslint/ban-ts-comment [{"minimumDescriptionLength":10}]
+source.cjs @typescript-eslint/no-array-constructor
+source.cjs @typescript-eslint/no-duplicate-enum-values
+source.cjs @typescript-eslint/no-dynamic-delete
+source.cjs @typescript-eslint/no-empty-object-type
+source.cjs @typescript-eslint/no-explicit-any
+source.cjs @typescript-eslint/no-extra-non-null-assertion
+source.cjs @typescript-eslint/no-extraneous-class
+source.cjs @typescript-eslint/no-invalid-void-type
+source.cjs @typescript-eslint/no-misused-new
+source.cjs @typescript-eslint/no-namespace
+source.cjs @typescript-eslint/no-non-null-asserted-nullish-coalescing
+source.cjs @typescript-eslint/no-non-null-asserted-optional-chain
+source.cjs @typescript-eslint/no-non-null-assertion
+source.cjs @typescript-eslint/no-this-alias
+source.cjs @typescript-eslint/no-unnecessary-type-constraint
+source.cjs @typescript-eslint/no-unsafe-declaration-merging
+source.cjs @typescript-eslint/no-unsafe-function-type
+source.cjs @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
+source.cjs @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
+source.cjs @typescript-eslint/no-useless-constructor
+source.cjs @typescript-eslint/no-wrapper-object-types
+source.cjs @typescript-eslint/prefer-as-const
+source.cjs @typescript-eslint/prefer-literal-enum-member
+source.cjs @typescript-eslint/prefer-namespace-keyword
+source.cjs @typescript-eslint/triple-slash-reference
+source.cjs @typescript-eslint/unified-signatures
+source.cjs constructor-super
+source.cjs eqeqeq ["smart"]
+source.cjs eslint-comments/no-duplicate-disable
+source.cjs eslint-comments/no-unlimited-disable
+source.cjs eslint-comments/no-unused-enable
+source.cjs eslint-comments/no-use [{"allow":["eslint-disable-line","eslint-disable-next-line","global","globals"]}]
+source.cjs eslint-comments/require-description
+source.cjs for-direction
+source.cjs getter-return [{"allowImplicit":false}]
+source.cjs no-async-promise-executor
+source.cjs no-case-declarations
+source.cjs no-class-assign
+source.cjs no-compare-neg-zero
+source.cjs no-cond-assign ["except-parens"]
+source.cjs no-const-assign
+source.cjs no-constant-binary-expression [{"checkRelationalComparisons":false}]
+source.cjs no-constant-condition [{"checkLoops":"allExceptWhileTrue"}]
+source.cjs no-debugger
+source.cjs no-delete-var
+source.cjs no-dupe-args
+source.cjs no-dupe-class-members
+source.cjs no-dupe-else-if
+source.cjs no-dupe-keys
+source.cjs no-duplicate-case
+source.cjs no-empty [{"allowEmptyCatch":false}]
+source.cjs no-empty-character-class
+source.cjs no-empty-pattern [{"allowObjectPatternsAsParameters":false}]
+source.cjs no-empty-static-block
+source.cjs no-ex-assign
+source.cjs no-extra-boolean-cast [{}]
+source.cjs no-fallthrough [{"allowEmptyCase":false,"reportUnusedFallthroughComment":false}]
+source.cjs no-func-assign
+source.cjs no-global-assign [{"exceptions":[]}]
+source.cjs no-import-assign
+source.cjs no-invalid-regexp [{}]
+source.cjs no-irregular-whitespace [{"skipComments":false,"skipJSXText":false,"skipRegExps":false,"skipStrings":true,"skipTemplates":false}]
+source.cjs no-loss-of-precision
+source.cjs no-misleading-character-class [{"allowEscape":false}]
+source.cjs no-new-native-nonconstructor
+source.cjs no-nonoctal-decimal-escape
+source.cjs no-obj-calls
+source.cjs no-octal
+source.cjs no-prototype-builtins
+source.cjs no-redeclare [{"builtinGlobals":true}]
+source.cjs no-regex-spaces
+source.cjs no-self-assign [{"props":true}]
+source.cjs no-setter-return
+source.cjs no-shadow-restricted-names [{"reportGlobalThis":true}]
+source.cjs no-sparse-arrays
+source.cjs no-this-before-super
+source.cjs no-unassigned-vars
+source.cjs no-undef [{"typeof":false}]
+source.cjs no-unexpected-multiline
+source.cjs no-unreachable
+source.cjs no-unsafe-finally
+source.cjs no-unsafe-negation [{"enforceForOrderingRelations":false}]
+source.cjs no-unsafe-optional-chaining [{"disallowArithmeticOperators":false}]
+source.cjs no-unused-labels
+source.cjs no-unused-private-class-members
+source.cjs no-useless-assignment
+source.cjs no-useless-backreference
+source.cjs no-useless-catch
+source.cjs no-useless-escape [{"allowRegexCharacters":[]}]
+source.cjs no-with
+source.cjs preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
+source.cjs require-yield
+source.cjs use-isnan [{"enforceForIndexOf":false,"enforceForSwitchCase":true}]
+source.cjs valid-typeof [{"requireStringLiterals":false}]
+source.js @typescript-eslint/ban-ts-comment [{"minimumDescriptionLength":10}]
+source.js @typescript-eslint/no-array-constructor
+source.js @typescript-eslint/no-duplicate-enum-values
+source.js @typescript-eslint/no-dynamic-delete
+source.js @typescript-eslint/no-empty-object-type
+source.js @typescript-eslint/no-explicit-any
+source.js @typescript-eslint/no-extra-non-null-assertion
+source.js @typescript-eslint/no-extraneous-class
+source.js @typescript-eslint/no-invalid-void-type
+source.js @typescript-eslint/no-misused-new
+source.js @typescript-eslint/no-namespace
+source.js @typescript-eslint/no-non-null-asserted-nullish-coalescing
+source.js @typescript-eslint/no-non-null-asserted-optional-chain
+source.js @typescript-eslint/no-non-null-assertion
+source.js @typescript-eslint/no-require-imports
+source.js @typescript-eslint/no-this-alias
+source.js @typescript-eslint/no-unnecessary-type-constraint
+source.js @typescript-eslint/no-unsafe-declaration-merging
+source.js @typescript-eslint/no-unsafe-function-type
+source.js @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
+source.js @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
+source.js @typescript-eslint/no-useless-constructor
+source.js @typescript-eslint/no-wrapper-object-types
+source.js @typescript-eslint/prefer-as-const
+source.js @typescript-eslint/prefer-literal-enum-member
+source.js @typescript-eslint/prefer-namespace-keyword
+source.js @typescript-eslint/triple-slash-reference
+source.js @typescript-eslint/unified-signatures
+source.js constructor-super
+source.js eqeqeq ["smart"]
+source.js eslint-comments/no-duplicate-disable
+source.js eslint-comments/no-unlimited-disable
+source.js eslint-comments/no-unused-enable
+source.js eslint-comments/no-use [{"allow":["eslint-disable-line","eslint-disable-next-line","global","globals"]}]
+source.js eslint-comments/require-description
+source.js for-direction
+source.js getter-return [{"allowImplicit":false}]
+source.js no-async-promise-executor
+source.js no-case-declarations
+source.js no-class-assign
+source.js no-compare-neg-zero
+source.js no-cond-assign ["except-parens"]
+source.js no-const-assign
+source.js no-constant-binary-expression [{"checkRelationalComparisons":false}]
+source.js no-constant-condition [{"checkLoops":"allExceptWhileTrue"}]
+source.js no-debugger
+source.js no-delete-var
+source.js no-dupe-args
+source.js no-dupe-class-members
+source.js no-dupe-else-if
+source.js no-dupe-keys
+source.js no-duplicate-case
+source.js no-empty [{"allowEmptyCatch":false}]
+source.js no-empty-character-class
+source.js no-empty-pattern [{"allowObjectPatternsAsParameters":false}]
+source.js no-empty-static-block
+source.js no-ex-assign
+source.js no-extra-boolean-cast [{}]
+source.js no-fallthrough [{"allowEmptyCase":false,"reportUnusedFallthroughComment":false}]
+source.js no-func-assign
+source.js no-global-assign [{"exceptions":[]}]
+source.js no-import-assign
+source.js no-invalid-regexp [{}]
+source.js no-irregular-whitespace [{"skipComments":false,"skipJSXText":false,"skipRegExps":false,"skipStrings":true,"skipTemplates":false}]
+source.js no-loss-of-precision
+source.js no-misleading-character-class [{"allowEscape":false}]
+source.js no-new-native-nonconstructor
+source.js no-nonoctal-decimal-escape
+source.js no-obj-calls
+source.js no-octal
+source.js no-prototype-builtins
+source.js no-redeclare [{"builtinGlobals":true}]
+source.js no-regex-spaces
+source.js no-self-assign [{"props":true}]
+source.js no-setter-return
+source.js no-shadow-restricted-names [{"reportGlobalThis":true}]
+source.js no-sparse-arrays
+source.js no-this-before-super
+source.js no-unassigned-vars
+source.js no-undef [{"typeof":false}]
+source.js no-unexpected-multiline
+source.js no-unreachable
+source.js no-unsafe-finally
+source.js no-unsafe-negation [{"enforceForOrderingRelations":false}]
+source.js no-unsafe-optional-chaining [{"disallowArithmeticOperators":false}]
+source.js no-unused-labels
+source.js no-unused-private-class-members
+source.js no-useless-assignment
+source.js no-useless-backreference
+source.js no-useless-catch
+source.js no-useless-escape [{"allowRegexCharacters":[]}]
+source.js no-with
+source.js preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
+source.js require-yield
+source.js use-isnan [{"enforceForIndexOf":false,"enforceForSwitchCase":true}]
+source.js valid-typeof [{"requireStringLiterals":false}]
+source.ts @typescript-eslint/ban-ts-comment [{"minimumDescriptionLength":10}]
+source.ts @typescript-eslint/no-array-constructor
+source.ts @typescript-eslint/no-duplicate-enum-values
+source.ts @typescript-eslint/no-dynamic-delete
+source.ts @typescript-eslint/no-empty-object-type
+source.ts @typescript-eslint/no-explicit-any
+source.ts @typescript-eslint/no-extra-non-null-assertion
+source.ts @typescript-eslint/no-extraneous-class
+source.ts @typescript-eslint/no-invalid-void-type
+source.ts @typescript-eslint/no-misused-new
+source.ts @typescript-eslint/no-namespace
+source.ts @typescript-eslint/no-non-null-asserted-nullish-coalescing
+source.ts @typescript-eslint/no-non-null-asserted-optional-chain
+source.ts @typescript-eslint/no-non-null-assertion
+source.ts @typescript-eslint/no-require-imports
+source.ts @typescript-eslint/no-this-alias
+source.ts @typescript-eslint/no-unnecessary-type-constraint
+source.ts @typescript-eslint/no-unsafe-declaration-merging
+source.ts @typescript-eslint/no-unsafe-function-type
+source.ts @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
+source.ts @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
+source.ts @typescript-eslint/no-useless-constructor
+source.ts @typescript-eslint/no-wrapper-object-types
+source.ts @typescript-eslint/prefer-as-const
+source.ts @typescript-eslint/prefer-literal-enum-member
+source.ts @typescript-eslint/prefer-namespace-keyword
+source.ts @typescript-eslint/triple-slash-reference
+source.ts @typescript-eslint/unified-signatures
+source.ts eqeqeq ["smart"]
+source.ts eslint-comments/no-duplicate-disable
+source.ts eslint-comments/no-unlimited-disable
+source.ts eslint-comments/no-unused-enable
+source.ts eslint-comments/no-use [{"allow":["eslint-disable-line","eslint-disable-next-line","global","globals"]}]
+source.ts eslint-comments/require-description
+source.ts for-direction
+source.ts no-async-promise-executor
+source.ts no-case-declarations
+source.ts no-compare-neg-zero
+source.ts no-cond-assign ["except-parens"]
+source.ts no-constant-binary-expression [{"checkRelationalComparisons":false}]
+source.ts no-constant-condition [{"checkLoops":"allExceptWhileTrue"}]
+source.ts no-debugger
+source.ts no-delete-var
+source.ts no-dupe-else-if
+source.ts no-duplicate-case
+source.ts no-empty [{"allowEmptyCatch":false}]
+source.ts no-empty-character-class
+source.ts no-empty-pattern [{"allowObjectPatternsAsParameters":false}]
+source.ts no-empty-static-block
+source.ts no-ex-assign
+source.ts no-extra-boolean-cast [{}]
+source.ts no-fallthrough [{"allowEmptyCase":false,"reportUnusedFallthroughComment":false}]
+source.ts no-global-assign [{"exceptions":[]}]
+source.ts no-invalid-regexp [{}]
+source.ts no-irregular-whitespace [{"skipComments":false,"skipJSXText":false,"skipRegExps":false,"skipStrings":true,"skipTemplates":false}]
+source.ts no-loss-of-precision
+source.ts no-misleading-character-class [{"allowEscape":false}]
+source.ts no-nonoctal-decimal-escape
+source.ts no-octal
+source.ts no-prototype-builtins
+source.ts no-regex-spaces
+source.ts no-self-assign [{"props":true}]
+source.ts no-shadow-restricted-names [{"reportGlobalThis":true}]
+source.ts no-sparse-arrays
+source.ts no-unassigned-vars
+source.ts no-unexpected-multiline
+source.ts no-unsafe-finally
+source.ts no-unsafe-optional-chaining [{"disallowArithmeticOperators":false}]
+source.ts no-unused-labels
+source.ts no-unused-private-class-members
+source.ts no-useless-assignment
+source.ts no-useless-backreference
+source.ts no-useless-catch
+source.ts no-useless-escape [{"allowRegexCharacters":[]}]
+source.ts no-var
+source.ts prefer-const [{"destructuring":"any","ignoreReadBeforeAssign":false}]
+source.ts prefer-rest-params
+source.ts prefer-spread
+source.ts preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
+source.ts require-yield
+source.ts use-isnan [{"enforceForIndexOf":false,"enforceForSwitchCase":true}]
+source.ts valid-typeof [{"requireStringLiterals":false}]
+test.js @typescript-eslint/ban-ts-comment [{"minimumDescriptionLength":10}]
+test.js @typescript-eslint/no-array-constructor
+test.js @typescript-eslint/no-duplicate-enum-values
+test.js @typescript-eslint/no-dynamic-delete
+test.js @typescript-eslint/no-empty-object-type
+test.js @typescript-eslint/no-explicit-any
+test.js @typescript-eslint/no-extra-non-null-assertion
+test.js @typescript-eslint/no-extraneous-class
+test.js @typescript-eslint/no-invalid-void-type
+test.js @typescript-eslint/no-misused-new
+test.js @typescript-eslint/no-namespace
+test.js @typescript-eslint/no-non-null-asserted-nullish-coalescing
+test.js @typescript-eslint/no-non-null-asserted-optional-chain
+test.js @typescript-eslint/no-require-imports
+test.js @typescript-eslint/no-this-alias
+test.js @typescript-eslint/no-unnecessary-type-constraint
+test.js @typescript-eslint/no-unsafe-declaration-merging
+test.js @typescript-eslint/no-unsafe-function-type
+test.js @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
+test.js @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
+test.js @typescript-eslint/no-useless-constructor
+test.js @typescript-eslint/no-wrapper-object-types
+test.js @typescript-eslint/prefer-as-const
+test.js @typescript-eslint/prefer-literal-enum-member
+test.js @typescript-eslint/prefer-namespace-keyword
+test.js @typescript-eslint/triple-slash-reference
+test.js @typescript-eslint/unified-signatures
+test.js constructor-super
+test.js eqeqeq ["smart"]
+test.js eslint-comments/no-duplicate-disable
+test.js eslint-comments/no-unlimited-disable
+test.js eslint-comments/no-unused-enable
+test.js eslint-comments/no-use [{"allow":["eslint-disable-line","eslint-disable-next-line","global","globals"]}]
+test.js eslint-comments/require-description
+test.js for-direction
+test.js getter-return [{"allowImplicit":false}]
+test.js no-async-promise-executor
+test.js no-case-declarations
+test.js no-class-assign
+test.js no-compare-neg-zero
+test.js no-cond-assign ["except-parens"]
+test.js no-console [{}]
+test.js no-const-assign
+test.js no-constant-binary-expression [{"checkRelationalComparisons":false}]
+test.js no-constant-condition [{"checkLoops":"allExceptWhileTrue"}]
+test.js no-debugger
+test.js no-delete-var
+test.js no-dupe-args
+test.js no-dupe-class-members
+test.js no-dupe-else-if
+test.js no-dupe-keys
+test.js no-duplicate-case
+test.js no-empty [{"allowEmptyCatch":false}]
+test.js no-empty-character-class
+test.js no-empty-pattern [{"allowObjectPatternsAsParameters":false}]
+test.js no-empty-static-block
+test.js no-ex-assign
+test.js no-extra-boolean-cast [{}]
+test.js no-fallthrough [{"allowEmptyCase":false,"reportUnusedFallthroughComment":false}]
+test.js no-func-assign
+test.js no-global-assign [{"exceptions":[]}]
+test.js no-import-assign
+test.js no-invalid-regexp [{}]
+test.js no-irregular-whitespace [{"skipComments":false,"skipJSXText":false,"skipRegExps":false,"skipStrings":true,"skipTemplates":false}]
+test.js no-loss-of-precision
+test.js no-misleading-character-class [{"allowEscape":false}]
+test.js no-new-native-nonconstructor
+test.js no-nonoctal-decimal-escape
+test.js no-obj-calls
+test.js no-octal
+test.js no-prototype-builtins
+test.js no-redeclare [{"builtinGlobals":true}]
+test.js no-regex-spaces
+test.js no-self-assign [{"props":true}]
+test.js no-setter-return
+test.js no-shadow-restricted-names [{"reportGlobalThis":true}]
+test.js no-sparse-arrays
+test.js no-this-before-super
+test.js no-unassigned-vars
+test.js no-undef [{"typeof":false}]
+test.js no-unexpected-multiline
+test.js no-unreachable
+test.js no-unsafe-finally
+test.js no-unsafe-negation [{"enforceForOrderingRelations":false}]
+test.js no-unsafe-optional-chaining [{"disallowArithmeticOperators":false}]
+test.js no-unused-labels
+test.js no-unused-private-class-members
+test.js no-useless-assignment
+test.js no-useless-backreference
+test.js no-useless-catch
+test.js no-useless-escape [{"allowRegexCharacters":[]}]
+test.js no-with
+test.js preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
+test.js require-yield
+test.js use-isnan [{"enforceForIndexOf":false,"enforceForSwitchCase":true}]
+test.js valid-typeof [{"requireStringLiterals":false}]
+test.ts @typescript-eslint/ban-ts-comment [{"minimumDescriptionLength":10}]
+test.ts @typescript-eslint/no-array-constructor
+test.ts @typescript-eslint/no-duplicate-enum-values
+test.ts @typescript-eslint/no-dynamic-delete
+test.ts @typescript-eslint/no-empty-object-type
+test.ts @typescript-eslint/no-explicit-any
+test.ts @typescript-eslint/no-extra-non-null-assertion
+test.ts @typescript-eslint/no-extraneous-class
+test.ts @typescript-eslint/no-invalid-void-type
+test.ts @typescript-eslint/no-misused-new
+test.ts @typescript-eslint/no-namespace
+test.ts @typescript-eslint/no-non-null-asserted-nullish-coalescing
+test.ts @typescript-eslint/no-non-null-asserted-optional-chain
+test.ts @typescript-eslint/no-require-imports
+test.ts @typescript-eslint/no-this-alias
+test.ts @typescript-eslint/no-unnecessary-type-constraint
+test.ts @typescript-eslint/no-unsafe-declaration-merging
+test.ts @typescript-eslint/no-unsafe-function-type
+test.ts @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
+test.ts @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
+test.ts @typescript-eslint/no-useless-constructor
+test.ts @typescript-eslint/no-wrapper-object-types
+test.ts @typescript-eslint/prefer-as-const
+test.ts @typescript-eslint/prefer-literal-enum-member
+test.ts @typescript-eslint/prefer-namespace-keyword
+test.ts @typescript-eslint/triple-slash-reference
+test.ts @typescript-eslint/unified-signatures
+test.ts eqeqeq ["smart"]
+test.ts eslint-comments/no-duplicate-disable
+test.ts eslint-comments/no-unlimited-disable
+test.ts eslint-comments/no-unused-enable
+test.ts eslint-comments/no-use [{"allow":["eslint-disable-line","eslint-disable-next-line","global","globals"]}]
+test.ts eslint-comments/require-description
+test.ts for-direction
+test.ts no-async-promise-executor
+test.ts no-case-declarations
+test.ts no-compare-neg-zero
+test.ts no-cond-assign ["except-parens"]
+test.ts no-console [{}]
+test.ts no-constant-binary-expression [{"checkRelationalComparisons":false}]
+test.ts no-constant-condition [{"checkLoops":"allExceptWhileTrue"}]
+test.ts no-debugger
+test.ts no-delete-var
+test.ts no-dupe-else-if
+test.ts no-duplicate-case
+test.ts no-empty [{"allowEmptyCatch":false}]
+test.ts no-empty-character-class
+test.ts no-empty-pattern [{"allowObjectPatternsAsParameters":false}]
+test.ts no-empty-static-block
+test.ts no-ex-assign
+test.ts no-extra-boolean-cast [{}]
+test.ts no-fallthrough [{"allowEmptyCase":false,"reportUnusedFallthroughComment":false}]
+test.ts no-global-assign [{"exceptions":[]}]
+test.ts no-invalid-regexp [{}]
+test.ts no-irregular-whitespace [{"skipComments":false,"skipJSXText":false,"skipRegExps":false,"skipStrings":true,"skipTemplates":false}]
+test.ts no-loss-of-precision
+test.ts no-misleading-character-class [{"allowEscape":false}]
+test.ts no-nonoctal-decimal-escape
+test.ts no-octal
+test.ts no-prototype-builtins
+test.ts no-regex-spaces
+test.ts no-self-assign [{"props":true}]
+test.ts no-shadow-restricted-names [{"reportGlobalThis":true}]
+test.ts no-sparse-arrays
+test.ts no-unassigned-vars
+test.ts no-unexpected-multiline
+test.ts no-unsafe-finally
+test.ts no-unsafe-optional-chaining [{"disallowArithmeticOperators":false}]
+test.ts no-unused-labels
+test.ts no-unused-private-class-members
+test.ts no-useless-assignment
+test.ts no-useless-backreference
+test.ts no-useless-catch
+test.ts no-useless-escape [{"allowRegexCharacters":[]}]
+test.ts no-var
+test.ts prefer-const [{"destructuring":"any","ignoreReadBeforeAssign":false}]
+test.ts prefer-rest-params
+test.ts prefer-spread
+test.ts preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
+test.ts require-yield
+test.ts use-isnan [{"enforceForIndexOf":false,"enforceForSwitchCase":true}]
+test.ts valid-typeof [{"requireStringLiterals":false}]
