@@ -1,0 +1,58 @@
+# The RuboCop configuration every repository is checked with. lib/rubocop.sh
+# passes it with --config, so a repository's own .rubocop.yml is never read;
+# the action refuses one, and a .rubocop options file, rather than leave a
+# contributor believing it applies. A line that must differ says so where it
+# is, with `# rubocop:disable <Department/Cop>` and the reason beside it.
+#
+# Everything not named below is RuboCop's default, cops added since included:
+# a RuboCop release that adds cops turns them on when this action moves to it.
+AllCops:
+  NewCops: enable
+  # The oldest Ruby any of the repositories' Ruby runs on, so a cop never
+  # suggests syntax a supported interpreter cannot parse.
+  TargetRubyVersion: 3.3
+  # Which extensions to install is decided here, for every repository at once.
+  SuggestExtensions: false
+
+# Size and complexity scores (method length, ABC size, cyclomatic complexity
+# and the rest) are signals for a reader, not a verdict a build can act on: a
+# split made to satisfy a number moves code without making it clearer. Nothing
+# else these repositories run holds their code to a size, and on a DSL file the
+# score measures the DSL, not a function.
+Metrics:
+  Enabled: false
+
+# It asks for a comment above every class and module, which in practice reads
+# "the X class". A comment here says why the code is the way it is, which is
+# for the author to write where there is something to say.
+Style/Documentation:
+  Enabled: false
+
+# Double quotes are what the repositories' Ruby already uses, as Homebrew's
+# own style does, so one rule holds without rewriting most of it.
+Style/StringLiterals:
+  EnforcedStyle: double_quotes
+Style/StringLiteralsInInterpolation:
+  EnforcedStyle: double_quotes
+
+# Pathname's `/` is written without spaces (`prefix/"bin"`), the way Homebrew
+# writes every path join; Homebrew's own configuration turns this cop off for
+# that reason. The cop has no setting for one operator, so leaving it on would
+# rewrite every path join into a form no Homebrew code uses.
+Layout/SpaceAroundOperators:
+  Enabled: false
+
+# Each of these names is one its tool requires: CocoaPods names a podspec for
+# its pod, fastlane reads `Appfile`, `Matchfile` and `Pluginfile`, and `brew
+# bundle --file` takes a `Brewfile.<name>`. They are added to RuboCop's own
+# exclusions for the cop, which the merge keeps, rather than replacing them.
+Naming/FileName:
+  inherit_mode:
+    merge:
+      - Exclude
+  Exclude:
+    - "**/*.podspec"
+    - "**/Appfile"
+    - "**/Matchfile"
+    - "**/Pluginfile"
+    - "**/Brewfile.*"

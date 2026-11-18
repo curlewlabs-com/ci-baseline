@@ -1,0 +1,10 @@
+# frozen_string_literal: true
+
+# The RuboCop lib/rubocop.sh runs, installed from Gemfile.lock beside this file
+# with the lock frozen, so Bundler refuses any gem whose sha256 differs from
+# the lock's CHECKSUMS. It is pinned here, not only in the lock, so this file
+# stays the record of what runs.
+
+source "https://rubygems.org"
+
+gem "rubocop", "1.92.2"
