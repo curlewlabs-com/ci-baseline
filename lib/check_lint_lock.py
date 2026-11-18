@@ -19,10 +19,15 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 REGISTRY = "https://registry.npmjs.org/"
 EXACT = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
+
+
+def _is_table(value: object) -> TypeGuard[dict[str, Any]]:
+    """A JSON object, whose keys json always makes strings."""
+    return isinstance(value, dict)
 
 
 def problems(
@@ -32,7 +37,7 @@ def problems(
     if lock.get("lockfileVersion") != 3:
         found.append("lockfileVersion is not 3")
     packages = lock.get("packages")
-    if not isinstance(packages, dict) or "" not in packages:
+    if not _is_table(packages) or "" not in packages:
         return [*found, "no packages table with a root entry"]
     wanted = manifest.get("dependencies", {})
     for name, version in wanted.items():

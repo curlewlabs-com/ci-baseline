@@ -95,6 +95,10 @@ ASSETS = {
         "PRETTIER_VERSION",
         "https://registry.npmjs.org/prettier/-/prettier-{version}.tgz",
     ),
+    "PYRIGHT_SHA256": (
+        "PYRIGHT_VERSION",
+        "https://registry.npmjs.org/pyright/-/pyright-{version}.tgz",
+    ),
 }
 
 ATTEMPTS = 3

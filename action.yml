@@ -1,15 +1,25 @@
 name: ci-baseline
 description: >-
   The checks every repository runs: actionlint, zizmor, shellcheck, shfmt and
-  shell-trap-lint over every shell file, ruff, RuboCop, buildifier, prettier
-  formatting, eslint's rules that need no type information, ASCII-only text,
-  GitHub-hosted runners only, composite steps that call scripts, and
-  workflow_run triggers and action manifests GitHub accepts on push and then
-  never runs.
+  shell-trap-lint over every shell file, ruff and pyright strict, RuboCop,
+  buildifier, prettier formatting, eslint's rules that need no type
+  information, ASCII-only text, GitHub-hosted runners only, composite steps
+  that call scripts, and workflow_run triggers and action manifests GitHub
+  accepts on push and then never runs.
 author: Curlew Labs
 branding:
   icon: check-square
   color: gray-dark
+
+inputs:
+  python-search-paths:
+    description: >-
+      Directories, one per line, absolute or relative to the repository root,
+      that the repository's Python imports from and does not track: a
+      dependency an earlier step of the same job fetched or installed. pyright
+      resolves imports through them and checks nothing in them.
+    required: false
+    default: ""
 
 # Each check runs whatever the one before it found, so one run reports all of
 # them; any failure still fails the action.
@@ -63,6 +73,12 @@ runs:
       if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
       shell: sh
       run: '"$GITHUB_ACTION_PATH/lib/ruff.sh"'
+    - name: pyright
+      if: ${{ !cancelled() && steps.tools.outcome == 'success' && steps.files.outcome == 'success' }}
+      shell: sh
+      env:
+        CI_BASELINE_SEARCH_PATHS: ${{ inputs.python-search-paths }}
+      run: '"$GITHUB_ACTION_PATH/lib/pyright.sh"'
     # Runs in its own Ruby container, and only where Ruby is tracked, so it
     # needs the file list and not the tools step.
     - name: rubocop

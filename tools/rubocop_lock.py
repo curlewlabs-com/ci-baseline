@@ -79,7 +79,7 @@ def satisfies(version: str, requirement: str) -> bool:
         # RubyGems' pessimistic bound: at least the version, and below the
         # next release of its second-to-last segment (~> 3.17.0.2 is
         # >= 3.17.0.2, < 3.17.1).
-        prefix = bound[:-1] if len(bound) > 1 else bound
+        prefix = bound[: max(len(bound) - 1, 1)]
         ceiling = prefix[:-1] + (prefix[-1] + 1,)
         return order >= 0 and _compare(have, ceiling) < 0
     return {
@@ -156,7 +156,7 @@ def release(record: bytes, version: str) -> Release:
 
 def pinned(gemfile: str) -> str:
     """The RuboCop version the Gemfile pins, read strictly."""
-    gems = []
+    gems: list[tuple[str, ...]] = []
     for line in gemfile.splitlines():
         stripped = line.strip()
         if not stripped or stripped.startswith("#"):

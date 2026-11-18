@@ -18,6 +18,7 @@ and the policy lives in one place:
 | [shfmt](https://github.com/mvdan/sh)                                         | a tracked shell file shfmt formats differently                                                                                  |
 | [shell-trap-lint](https://github.com/curlewlabs-com/shell-trap-lint)         | an EXIT trap in a tracked shell file that lets a run that stopped short exit 0                                                  |
 | [ruff](https://docs.astral.sh/ruff/)                                         | a lint finding in a tracked Python file, or one ruff formats differently                                                        |
+| [pyright](https://github.com/microsoft/pyright)                              | a strict error in a tracked `.py` or `.pyi` file, under the one policy in [`policy.py`](src/ci_baseline_pyright/policy.py)      |
 | [RuboCop](https://rubocop.org)                                               | any finding in a tracked Ruby file, under the one configuration in [`lib/rubocop/config.yml`](lib/rubocop/config.yml)           |
 | [buildifier](https://github.com/bazel-contrib/buildtools)                    | a tracked Starlark file buildifier formats differently, or a lint warning in one                                                |
 | [prettier](https://prettier.io)                                              | a tracked file of a kind prettier formats (Markdown, YAML, JSON, JavaScript, TypeScript, CSS, HTML) that it formats differently |
@@ -31,7 +32,8 @@ A file is a language's by its name or, under any other name, by its shebang, so
 a script with no extension is still read:
 
 - **shell**: `*.sh`, `*.bash`, or a `sh`, `bash` or `dash` shebang
-- **Python**: `*.py`, `*.pyi`, or a `python` shebang
+- **Python**: `*.py`, `*.pyi`, or a `python` shebang; pyright reads only the
+  first two, since a file can be handed to it as Python only by its name
 - **Starlark**: `*.bzl`, `*.bazel`, `*.bzlmod`, `*.BUILD`, `BUILD`, `WORKSPACE`
 - **Ruby**: the names RuboCop counts as Ruby (`*.rb`, `*.gemspec`, `*.podspec`,
   `Gemfile`, `Podfile`, `Rakefile`, `Fastfile`, `Brewfile` and the rest, as
@@ -43,8 +45,11 @@ a script with no extension is still read:
   `*.mts`, `*.cts`, `*.tsx`, or a `node`, `bun` or `deno` shebang
 
 Only what a check can run with none of a repository's own dependencies installed
-is here. A type check, and tests, need them, and stay in the repository's own
-CI.
+is here. pyright is: it checks a repository's Python against the standard
+library, the repository's own files and what the job names for it (below). A
+type check that needs the repository's dependencies installed, such as mypy
+with the stubs and plugins a repository pins, and tests, stay in the
+repository's own CI.
 
 ## Why it exists
 
@@ -120,10 +125,26 @@ the one CI gives. It writes nothing in the checkout. Any ci-baseline checkout st
 `git clone https://github.com/curlewlabs-com/ci-baseline ~/src/ci-baseline`
 once, and `~/src/ci-baseline/lib/lint-local.sh` from then on.
 
+A repository whose Python imports something it does not track, such as a module
+of a dependency its build fetches, fetches it in an earlier step of the same job
+and names the directory it is imported from; pyright resolves imports through
+it and checks nothing in it:
+
+```yaml
+- uses: curlewlabs-com/ci-baseline@<sha> # vX.Y.Z
+  with:
+    python-search-paths: |
+      third_party/fetched
+```
+
+Each line is a directory, absolute or relative to the repository root, and one
+that does not exist fails the run.
+
 ## What it pins
 
 actionlint, shellcheck, zizmor, ruff, shfmt and buildifier are downloaded from
-their GitHub releases, and prettier from the npm registry, at the versions in
+their GitHub releases, and prettier and pyright from the npm registry, at the
+versions in
 [`lib/install-tools.sh`](lib/install-tools.sh), and each download is refused
 unless its sha256 matches the digest beside the version. shell-trap-lint is
 fetched as the commit named there, which git verifies by its name, and runs on
@@ -190,6 +211,7 @@ for them; what is checked, and with which version, is not.
 | shfmt           | `.editorconfig`; without one, shfmt's defaults                                                       | `ignore = true` in an `.editorconfig` section |
 | shell-trap-lint | nothing                                                                                              | -                                             |
 | ruff            | `pyproject.toml`, `ruff.toml` or `.ruff.toml`                                                        | `exclude` or `extend-exclude` there           |
+| pyright         | ruff's `target-version` and mypy's `platform`, and nothing else (below)                              | -                                             |
 | RuboCop         | nothing: [`lib/rubocop/config.yml`](lib/rubocop/config.yml) here is every repository's configuration | -                                             |
 | buildifier      | nothing: every repository gets its default warnings                                                  | -                                             |
 | prettier        | its configuration file, and `.editorconfig`                                                          | `.prettierignore`                             |
@@ -210,6 +232,57 @@ file the list above finds is checked, whatever its name. A line that must
 differ says so where it is, with `# rubocop:disable <Department/Cop>` and the
 reason beside it, and RuboCop reports a directive that no longer disables
 anything.
+
+pyright runs strict, under
+[`src/ci_baseline_pyright/policy.py`](src/ci_baseline_pyright/policy.py), whose
+back-offs, each with its reason there, are the same for every repository and
+changed by none: `reportUnnecessaryComparison` is off, `reportPrivateUsage` and
+`reportUnknownLambdaType` are off in tests, and a mypy `# type: ignore` silences
+nothing for pyright. A test is a file named `test_*`, `*_test`,
+`*_test_support` or `conftest`, or any file under a directory named `test` or
+`tests`; the tests are checked in a run of their own. A repository states only
+what its other tools already read:
+
+- the oldest Python it supports, ruff's `target-version`, read from the
+  configuration ruff reads at the repository root (`.ruff.toml`, then
+  `ruff.toml`, then a `pyproject.toml` with a `[tool.ruff]` table); a
+  repository whose ruff configuration sets none fails, since its floor is
+  unstated;
+- the platform, `[tool.mypy] platform` in the root `pyproject.toml`, or Linux.
+
+A file's imports resolve from its own directory first, then the repository
+root, every other directory holding a tracked Python file or above one (so a
+package under `src/` is imported from `src`), the directories
+`python-search-paths` names, and pyright's own stubs for the standard library
+and the third-party packages it bundles them for; where one name is offered by
+more than one of these, pyright's order decides
+([below](#what-the-pyright-check-assumes)). A line that must differ says so
+where it is, with `# pyright: ignore[<rule>]` and the reason beside it; that
+silences the rule it names on that line only. Each of these fails the run,
+since each would change the verdict beyond one line or from outside the policy:
+
+- a tracked `pyrightconfig.json`, anywhere, or a `[tool.pyright]` table in a
+  tracked `pyproject.toml`, which pyright would not read here and an editor
+  would;
+- a `# pyright: ignore` that names no rule, which silences every finding on its
+  line;
+- a file-level `# pyright:` comment, such as `# pyright: basic` or
+  `# pyright: reportUnknownMemberType=false`, which changes the rules for the
+  whole file.
+
+What reaches pyright is the tracked `.py` and `.pyi` files, copied into a
+directory of their own where it runs, so nothing untracked in the checkout (a
+module or stub an earlier step wrote, a `typings/`, a `.venv`, a
+`node_modules`, an untracked configuration) is read; the configuration built
+from the above; and an environment holding nothing but a `PATH` with no
+programs on it, so no variable of the caller's job (`NODE_OPTIONS`,
+`NODE_PATH`, `PYTHONPATH`, anything) reaches it, and it finds no Python
+interpreter whose installed packages would resolve an import. It runs on the
+job's `node`, as prettier does: pyright is the same JavaScript on any node that
+runs it, and a node it does not support fails the run with no verdict. The step
+that prepares it runs on the job's `python3` with `-I`, so no `PYTHON*`
+variable, user site-packages or file in the checkout is imported in place of its
+own modules.
 
 shell-trap-lint judges every shell file by its script form. Which files are
 tests is a caller's to say, so its test form's further check, that a failed
@@ -247,6 +320,26 @@ are not each under a `tsconfig.json` of their own. Any other key fails the run. 
 rule the configuration turns on, for each kind of file and layer, and CI fails when it
 differs from what the configuration resolves to, so a change to what is checked
 is a reviewed diff.
+
+### What the pyright check assumes
+
+Module names are unique within what pyright can resolve: each module tracked
+code imports is offered by one file. Where a name is offered by more than one,
+pyright's
+[documented resolution order](https://github.com/microsoft/pyright/blob/main/docs/import-resolution.md)
+decides which file the import is checked against, and that may not be the file
+Python imports at run time. The check does not look for these cases:
+
+- **A same-named module in two directories** resolves from the importing
+  file's own directory first, then the root and the tree's other directories,
+  then `python-search-paths`. Python finds whichever is first on `sys.path`
+  when it runs.
+- **A `.pyi` apart from its `.py`**, in another directory pyright searches, is
+  taken in preference to the `.py` beside the importing file, which is the one
+  Python runs.
+- **A tracked module named like a standard-library one** (`json.py`) is not
+  what pyright checks `import json` against: it reads the standard library's
+  stub, while a script beside the module imports the module.
 
 ### What the eslint configuration assumes
 

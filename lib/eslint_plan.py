@@ -31,11 +31,20 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeGuard
 
 STATEMENT = ".ci-baseline/eslint.json"
 KEYS = {"ignore", "projects"}
 TS_SUFFIXES = (".ts", ".mts", ".cts", ".tsx")
+
+
+def _is_table(value: object) -> TypeGuard[dict[str, Any]]:
+    """A JSON object, whose keys json always makes strings."""
+    return isinstance(value, dict)
+
+
+def _is_array(value: object) -> TypeGuard[list[Any]]:
+    return isinstance(value, list)
 
 
 class StatementError(Exception):
@@ -50,7 +59,7 @@ def read_statement(root: Path) -> dict[str, Any]:
         data = json.loads(path.read_text())
     except json.JSONDecodeError as err:
         raise StatementError(f"{STATEMENT} is not JSON: {err}") from err
-    if not isinstance(data, dict):
+    if not _is_table(data):
         raise StatementError(f"{STATEMENT} is not an object")
     unknown = set(data) - KEYS
     if unknown:
@@ -60,11 +69,11 @@ def read_statement(root: Path) -> dict[str, Any]:
         )
     ignore = data.get("ignore", [])
     projects = data.get("projects", [])
-    if not isinstance(ignore, list) or not isinstance(projects, list):
+    if not _is_array(ignore) or not _is_array(projects):
         raise StatementError(f"{STATEMENT}: ignore and projects are lists")
     for entry in ignore:
         if (
-            not isinstance(entry, dict)
+            not _is_table(entry)
             or set(entry) != {"path", "reason"}
             or not isinstance(entry["path"], str)
             or not isinstance(entry["reason"], str)
