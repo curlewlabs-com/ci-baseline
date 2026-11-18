@@ -21,7 +21,7 @@ runs:
       uses: curlewlabs-com/hosted-runner-lint@81695b70a6a7715c5c8951aed9f9abd7d97ab9a0 # v0.1.0
     - name: action-run-lint
       if: ${{ !cancelled() }}
-      uses: curlewlabs-com/action-run-lint@09a094e71cff461987330467a871ad6d1026df4c # v0.1.0
+      uses: curlewlabs-com/action-run-lint@aa20110b7f60099c1b6f4bdea13fb5f679d85a9f # v0.1.1
     - name: Install the pinned tools
       id: tools
       if: ${{ !cancelled() }}
