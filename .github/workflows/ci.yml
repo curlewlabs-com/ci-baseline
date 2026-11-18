@@ -16,6 +16,12 @@ on:
 permissions:
   contents: read
 
+env:
+  # This repository's own Gemfile, which makes every run of the action over
+  # this tree pull the Ruby image. A job that tests nothing in Ruby leaves it
+  # out of the tracked files first, so it pulls nothing it does not need.
+  RUBY_GEMFILE: lib/rubocop/Gemfile
+
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -181,6 +187,87 @@ jobs:
           LINT: ${{ steps.lint.outcome }}
           FORMAT: ${{ steps.format.outcome }}
         run: test "$LINT" = failure && test "$FORMAT" = failure
+
+  silent:
+    # A local action whose expressions sit where GitHub evaluates them passes;
+    # the same action with one in an input's description, which GitHub
+    # refuses to load, fails, and so does a workflow_run trigger naming no
+    # workflow. zizmor refuses every workflow_run trigger too, so the last
+    # case shows the action failing, not which of its checks failed; the
+    # manifest case is one only the action's manifest lint reports.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Leave the Gemfile out of the tracked files
+        run: git rm -q --cached "$RUBY_GEMFILE"
+      - name: Add a local action with an expression in its input's default
+        run: |
+          mkdir -p case
+          cat > case/action.yml <<'FILE'
+          name: case
+          description: Prints the token's length.
+          inputs:
+            token:
+              description: The token to measure.
+              default: @{{ github.token }}
+          runs:
+            using: composite
+            steps:
+              - shell: sh
+                env:
+                  TOKEN: @{{ inputs.token }}
+                run: '"$GITHUB_ACTION_PATH/run.sh"'
+          FILE
+          cat > case/run.sh <<'FILE'
+          #!/bin/sh
+          set -eu
+          echo "${#TOKEN}"
+          FILE
+          chmod +x case/run.sh
+          # Written as @{{ and turned into an expression's opening here, so
+          # this workflow evaluates none of the fixture's expressions itself.
+          dollar='$'
+          sed -i "s/@{{/${dollar}{{/g" case/action.yml
+          git add case
+      - name: The action passes it
+        uses: ./
+      - name: Describe the input with an expression instead
+        run: |
+          dollar='$'
+          sed -i "s/description: The token to measure./description: The ${dollar}{{ github.token }} to measure./" case/action.yml
+          grep -q 'description: The .{{ github.token }} to measure.' case/action.yml
+      - name: The action reports it
+        id: manifest
+        continue-on-error: true
+        uses: ./
+      - name: Restore it, and add a workflow_run trigger naming no workflow
+        run: |
+          git restore case/action.yml
+          cat > .github/workflows/case-child.yml <<'FILE'
+          name: Case child
+          on:
+            workflow_run:
+              workflows: [No Such Workflow]
+              types: [completed]
+          permissions: {}
+          jobs:
+            noop:
+              runs-on: ubuntu-24.04
+              steps:
+                - run: "true"
+          FILE
+          git add .github/workflows/case-child.yml
+      - name: The action reports it
+        id: trigger
+        continue-on-error: true
+        uses: ./
+      - name: Require that both failed
+        env:
+          MANIFEST: ${{ steps.manifest.outcome }}
+          TRIGGER: ${{ steps.trigger.outcome }}
+        run: test "$MANIFEST" = failure && test "$TRIGGER" = failure
 
   shell:
     # A script whose EXIT trap fails a run that stopped short: the action
@@ -558,6 +645,7 @@ jobs:
       - finds
       - sources
       - python
+      - silent
       - shell
       - starlark
       - formats
@@ -575,6 +663,7 @@ jobs:
           FINDS: ${{ needs.finds.result }}
           SOURCES: ${{ needs.sources.result }}
           PYTHON: ${{ needs.python.result }}
+          SILENT: ${{ needs.silent.result }}
           SHELL_FILES: ${{ needs.shell.result }}
           STARLARK: ${{ needs.starlark.result }}
           FORMATS: ${{ needs.formats.result }}
@@ -585,7 +674,8 @@ jobs:
         run: >-
           test "$LINT" = success && test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
-          test "$PYTHON" = success && test "$SHELL_FILES" = success &&
+          test "$PYTHON" = success && test "$SILENT" = success &&
+          test "$SHELL_FILES" = success &&
           test "$STARLARK" = success && test "$FORMATS" = success &&
           test "$RUBY" = success && test "$RUBY_FORMS" = success &&
           test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success
