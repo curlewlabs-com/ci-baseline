@@ -35,7 +35,7 @@ while IFS= read -r f; do
 	*.py | *.pyi)
 		printf '%s\n' "$f" >>"$out/python"
 		;;
-	*.bzl | *.bazel | *.bzlmod | BUILD | WORKSPACE)
+	*.bzl | *.bazel | *.bzlmod | *.BUILD | BUILD | WORKSPACE)
 		printf '%s\n' "$f" >>"$out/starlark"
 		;;
 	*)

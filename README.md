@@ -29,7 +29,7 @@ a script with no extension is still read:
 
 - **shell**: `*.sh`, `*.bash`, or a `sh`, `bash` or `dash` shebang
 - **Python**: `*.py`, `*.pyi`, or a `python` shebang
-- **Starlark**: `*.bzl`, `*.bazel`, `*.bzlmod`, `BUILD`, `WORKSPACE`
+- **Starlark**: `*.bzl`, `*.bazel`, `*.bzlmod`, `*.BUILD`, `BUILD`, `WORKSPACE`
 
 Only what a check can run with none of a repository's own dependencies installed
 is here. A type check, and tests, need them, and stay in the repository's own

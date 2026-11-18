@@ -24,8 +24,12 @@ versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
 - **Tests ship with the change.** A change to what the action finds includes a
   CI case that shows it finding it. A check implemented in its own repository is
   tested there.
-- **One policy.** A zizmor exception goes in `zizmor.yml` with the reason, for
-  every repository at once; the action never reads a repository's own config.
+- **One policy.** What is checked, and at which version, is the same in every
+  repository. A zizmor exception goes in `zizmor.yml` with the reason, for every
+  repository at once, and zizmor and buildifier never read a repository's own
+  configuration. A formatter or ruff reads the repository's, since how its files
+  are laid out and which lint rules it adopts are its own to say; the README
+  lists what each check reads.
 - **The action's steps call scripts.** Each `run:` in `action.yml` is one call
   of an executable file in `lib/`, so shellcheck reads all of the shell the
   action runs. action-run-lint holds this repository to it.
