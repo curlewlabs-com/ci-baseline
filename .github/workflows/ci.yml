@@ -28,9 +28,8 @@ concurrency:
 
 jobs:
   lint:
-    # The type check, which needs this repository's own configuration, and the
-    # unit tests of tools/. Its Python is linted and formatted by the action
-    # itself, in `baseline`.
+    # The type check, which needs this repository's own configuration. Its
+    # Python is linted and formatted by the action itself, in `baseline`.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -43,6 +42,19 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: mypy (strict)
         run: mypy
+
+  test:
+    # The unit tests of tools/, which need only the standard library. The
+    # action's own checks are tested by the case jobs below, each against a
+    # fixture tree.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
       - name: Unit tests
         run: python -m unittest discover -s tools
 
@@ -779,6 +791,7 @@ jobs:
     # above needs no settings change - only this list.
     needs:
       - lint
+      - test
       - baseline
       - finds
       - sources
@@ -802,6 +815,7 @@ jobs:
       - name: Require every job to pass
         env:
           LINT: ${{ needs.lint.result }}
+          TEST: ${{ needs.test.result }}
           BASELINE: ${{ needs.baseline.result }}
           FINDS: ${{ needs.finds.result }}
           SOURCES: ${{ needs.sources.result }}
@@ -820,7 +834,8 @@ jobs:
           RULES: ${{ needs.rules.result }}
           CONFIG_TARBALL: ${{ needs.config-tarball.result }}
         run: >-
-          test "$LINT" = success && test "$BASELINE" = success &&
+          test "$LINT" = success && test "$TEST" = success &&
+          test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
           test "$PYTHON" = success && test "$SILENT" = success &&
           test "$SHELL_FILES" = success &&
