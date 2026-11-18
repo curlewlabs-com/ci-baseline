@@ -7,12 +7,13 @@ whether a check that could not run still fails.
 ## Running the checks
 
 CI runs the action on this repository's own tree on every push and pull request,
-which is what lints and formats it. The type check is the one thing it runs
-besides; locally, with Python 3.12 or newer:
+which is what lints and formats it. The type check and the unit tests of
+`tools/` are the things it runs besides; locally, with Python 3.12 or newer:
 
 ```sh
 python3 -m pip install -r requirements-dev.txt
 mypy
+python3 -m unittest discover -s tools
 ```
 
 To see what the action would report before pushing, run the same tools at the
@@ -58,10 +59,32 @@ not worth having.
   moves together. RuboCop and the gems it needs are pinned by
   `lib/rubocop/Gemfile.lock`, whose `CHECKSUMS` Bundler checks. Renovate
   proposes the updates; after a tool bump, `python3 tools/refresh_tools.py`
-  rewrites the digests. A pin written inline
+  rewrites the digests, and after a RuboCop bump it moves the lock's RuboCop
+  entries, or refuses (see Relocking RuboCop). A pin written inline
   needs a `# renovate:` comment above it saying what the literal is.
 - **Comments explain why, not what.**
 - **Keep tracked text ASCII.**
+
+## Relocking RuboCop
+
+`tools/refresh_tools.py` moves `lib/rubocop/Gemfile.lock` to the RuboCop that
+`lib/rubocop/Gemfile` pins without running Ruby, and only when every other
+locked gem still satisfies the new release. When it refuses - a release that
+raises a dependency's floor past the locked version, adds a dependency, or
+anything else `tools/rubocop_lock.py` does not model - relock with Bundler in
+the pinned image, from the repository's root, on a machine with Docker:
+
+```sh
+docker run --rm --mount "type=bind,source=$PWD/lib/rubocop,target=/ci" \
+  --workdir /ci --env BUNDLE_VERSION=system \
+  "public.ecr.aws/docker/library/ruby:$(sed -n 's/^RUBY_VERSION=//p' lib/install-tools.sh)" \
+  bundle lock --update rubocop
+```
+
+`--update rubocop` also moves the gems RuboCop depends on, as far as their
+newest releases; read the lock's diff before committing it. The image's own
+Bundler keeps the lock's `BUNDLED WITH`, and CI's frozen install refuses any
+gem whose checksum is not the lock's.
 
 ## Submitting
 
