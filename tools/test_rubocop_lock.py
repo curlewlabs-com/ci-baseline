@@ -15,9 +15,13 @@ from pathlib import Path
 
 import rubocop_lock
 
-ROOT = Path(__file__).resolve().parents[1]
 RECORDS = Path(__file__).resolve().parent / "testdata/rubygems"
-LOCK = (ROOT / "lib/rubocop/Gemfile.lock").read_text()
+# The lock Bundler wrote for rubocop 1.92.2 in the pinned image, as
+# lib/rubocop/Gemfile.lock held it; fixed here so a later bump of the real lock
+# leaves the tests' starting point where it was.
+LOCK = (
+    Path(__file__).resolve().parent / "testdata/rubocop-1.92.2.Gemfile.lock"
+).read_text()
 RUBY = "4.0.9"
 OLD_SHA = "14fb31eed143a0dc6f78186c550c1715e81cd38f59d05d1165050e445c1f5382"
 NEW_SHA = "fd77feac46e8e91c3a534f868a1702c59f5bf8173515fd00a3c6ce1198672ff6"

@@ -114,15 +114,16 @@ def _one(text: str, name: str) -> re.Match[str]:
 
 
 def _download(url: str) -> bytes:
-    # A refused connection or a server error is retried; a 404 is not, since
-    # it means the asset name or version is wrong and retrying cannot fix it.
+    # A refused connection, a rate limit or a server error is retried; a 404
+    # is not, since it means the asset name or version is wrong and retrying
+    # cannot fix it.
     for attempt in range(1, ATTEMPTS + 1):
         try:
             with urllib.request.urlopen(url, timeout=60) as response:
                 body: bytes = response.read()
                 return body
         except urllib.error.HTTPError as e:
-            if e.code < 500 or attempt == ATTEMPTS:
+            if (e.code < 500 and e.code != 429) or attempt == ATTEMPTS:
                 raise RefreshError(f"could not download {url}: {e!r}") from e
         except OSError as e:
             if attempt == ATTEMPTS:
