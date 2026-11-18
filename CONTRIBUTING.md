@@ -41,6 +41,13 @@ resolves to, rewrites [`lint/rules.txt`](lint/rules.txt) in the same change:
 changed tree. A rule turned off names, beside it, what it reported that made it
 not worth having.
 
+`lint/package.json`'s `overrides` holds `minimatch` at 11.0.9, a release past
+[GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249),
+because the pinned `eslint` and `typescript-eslint` still ask for the 10.x line.
+Remove the override in the change that moves that pair to releases that ask
+for 11.0.1 or later themselves, so it cannot hold `minimatch` below what they
+need.
+
 ## Conventions
 
 - **Tests ship with the change.** A change to what the action finds includes a
