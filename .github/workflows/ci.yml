@@ -549,6 +549,86 @@ jobs:
           CHECKSUM: ${{ steps.checksum.outcome }}
         run: test "$FINDING" = failure && test "$CHECKSUM" = failure
 
+  eslint:
+    # The action's eslint step as a consumer runs it: it passes clean
+    # JavaScript and TypeScript, and fails a finding on the rule that reports
+    # it. What eslint does with each kind of input is the cases job's.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Add clean JavaScript and TypeScript
+        run: |
+          mkdir -p case
+          printf 'export const total = (values) => values.reduce((a, b) => a + b, 0);\n' > case/clean.mjs
+          printf 'export function first(values: readonly string[]): string | undefined {\n  return values[0];\n}\n' > case/clean.ts
+          git add case
+      - name: The action passes them
+        uses: ./
+      - name: Read a name nothing defines
+        run: |
+          printf 'export const value = undefinedName;\n' > case/finding.mjs
+          git add case/finding.mjs
+      - name: The action reports it
+        id: finding
+        continue-on-error: true
+        uses: ./
+      - name: Require that it failed on that rule
+        env:
+          OUTCOME: ${{ steps.finding.outcome }}
+          REPORT: ${{ runner.temp }}/ci-baseline/lint/eslint.out
+        run: test "$OUTCOME" = failure && grep -q 'no-undef' "$REPORT"
+
+  eslint-cases:
+    # tests/eslint_cases.py: each exemption the configuration makes, as a case
+    # it allows and the nearest case it must still report; every way a
+    # checkout or a job could change what eslint checks; and the toolchain
+    # install's refusals. A case that must fail names the rule or the refusal
+    # it fails on.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the toolchain
+        env:
+          DEST: ${{ runner.temp }}/cases-lint
+        run: lib/install-lint.sh "$DEST"
+      - name: Run the cases
+        env:
+          DEST: ${{ runner.temp }}/cases-lint
+        run: python3 -I tests/eslint_cases.py "$DEST"
+
+  rules:
+    # lint/rules.txt is every rule the configuration turns on, for each kind of
+    # file, so a toolchain bump or an edit that changes what is
+    # checked shows up as a diff of that file.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the toolchain
+        env:
+          DEST: ${{ runner.temp }}/rules-lint
+        run: lib/install-lint.sh "$DEST"
+      - name: Require that the resolved rules are rules.txt
+        env:
+          DEST: ${{ runner.temp }}/rules-lint
+        run: node "$DEST/print-rules.mjs" | diff -u lint/rules.txt -
+
+  config-tarball:
+    # The configuration tarball a release attaches is packed as the release
+    # packs it, and holds the licence files, byte for byte the root's.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pack it and read it back
+        run: python3 -I tests/config_tarball.py
+
   conclusion:
     # The one check branch protection requires, so adding or renaming a job
     # above needs no settings change - only this list.
@@ -565,6 +645,10 @@ jobs:
       - ruby-forms
       - ruby-skipped
       - ruby-isolated
+      - eslint
+      - eslint-cases
+      - rules
+      - config-tarball
     runs-on: ubuntu-24.04
     if: always()
     steps:
@@ -582,10 +666,16 @@ jobs:
           RUBY_FORMS: ${{ needs.ruby-forms.result }}
           RUBY_SKIPPED: ${{ needs.ruby-skipped.result }}
           RUBY_ISOLATED: ${{ needs.ruby-isolated.result }}
+          ESLINT: ${{ needs.eslint.result }}
+          ESLINT_CASES: ${{ needs.eslint-cases.result }}
+          RULES: ${{ needs.rules.result }}
+          CONFIG_TARBALL: ${{ needs.config-tarball.result }}
         run: >-
           test "$LINT" = success && test "$BASELINE" = success &&
           test "$FINDS" = success && test "$SOURCES" = success &&
           test "$PYTHON" = success && test "$SHELL_FILES" = success &&
           test "$STARLARK" = success && test "$FORMATS" = success &&
           test "$RUBY" = success && test "$RUBY_FORMS" = success &&
-          test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success
+          test "$RUBY_SKIPPED" = success && test "$RUBY_ISOLATED" = success &&
+          test "$ESLINT" = success && test "$ESLINT_CASES" = success &&
+          test "$RULES" = success && test "$CONFIG_TARBALL" = success

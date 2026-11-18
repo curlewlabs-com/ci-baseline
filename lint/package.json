@@ -1,0 +1,15 @@
+{
+  "name": "ci-baseline-lint",
+  "private": true,
+  "description": "The eslint toolchain ci-baseline installs from this lockfile and runs over every repository's JavaScript and TypeScript.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "dependencies": {
+    "@eslint-community/eslint-plugin-eslint-comments": "4.8.1",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1"
+  }
+}
