@@ -31,9 +31,12 @@ SHELL_TRAP_LINT_COMMIT=a7083827636531eaa762993eab14f20244eaa67d # v0.1.3
 # multi-architecture index, which is what is pulled; the tag is for a reader
 # and for the update. Pulled from the Amazon ECR Public mirror of Docker's
 # official images, the same bytes under the same digest as Docker Hub, which
-# limits anonymous pulls per address and hosted runners share addresses.
+# limits anonymous pulls per address and hosted runners share addresses. The
+# full image, not the slim one: Bundler builds json and prism, which RuboCop
+# needs, from source even where the image's Ruby already carries the same
+# versions, and only the full image has the compiler.
 # renovate: datasource=docker depName=public.ecr.aws/docker/library/ruby pin=image
-RUBY_VERSION=4.0.9-slim-trixie@sha256:d8cb2c0714bdaba0f318af897a01d2dbde3cfa8e62d47e99cea55feb13c0e90d
+RUBY_VERSION=4.0.9-trixie@sha256:ac9b27edd4382328460376335b40bcc294c756be117ba93179cf0317f5e86bec
 # A bump moves a version and leaves these stale, since a digest cannot be
 # typed from a version; tools/refresh_tools.py downloads each asset and
 # rewrites them.

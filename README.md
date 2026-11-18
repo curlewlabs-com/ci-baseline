@@ -86,9 +86,8 @@ official Ruby image, pulled from Amazon ECR Public's copy of Docker's official
 images by the digest in `lib/install-tools.sh`, which Docker refuses a pull not
 to match. RuboCop and every gem it needs are installed inside it from
 [`lib/rubocop/Gemfile.lock`](lib/rubocop/Gemfile.lock) with the lock frozen, so
-Bundler refuses a gem whose sha256 is not the one the lock's `CHECKSUMS` record;
-the gems that build a C extension are locked at the versions the image's Ruby
-already carries, so nothing is compiled. What crosses into the container is
+Bundler refuses a gem whose sha256 is not the one the lock's `CHECKSUMS` record,
+and the image's compiler builds the ones with a C extension. What crosses into the container is
 the image, the repository and [`lib/rubocop/`](lib/rubocop) mounted read-only,
 the list of files to check, and the three Bundler settings
 [`lib/rubocop.sh`](lib/rubocop.sh) names, so nothing else of the runner's or of
