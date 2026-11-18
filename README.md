@@ -83,13 +83,19 @@ their pins differ.
 Formatting and lint rules are the repository's, read from where each tool looks
 for them; what is checked, and with which version, is not.
 
-| Check           | Reads                                               | To leave a file out                                     |
-| --------------- | --------------------------------------------------- | ------------------------------------------------------- |
-| ruff            | `pyproject.toml`, `ruff.toml` or `.ruff.toml`       | `exclude` or `extend-exclude` there                     |
-| shfmt           | `.editorconfig`; without one, shfmt's defaults      | `ignore = true` in an `.editorconfig` section           |
-| prettier        | its configuration file, and `.editorconfig`         | `.prettierignore`                                       |
-| buildifier      | nothing: every repository gets its default warnings | a `# buildifier: disable=<warning>` comment on the line |
-| shell-trap-lint | nothing                                             | -                                                       |
+| Check           | Reads                                                                 | To leave a file out                           |
+| --------------- | --------------------------------------------------------------------- | --------------------------------------------- |
+| actionlint      | `.github/actionlint.yaml`                                             | -                                             |
+| zizmor          | nothing: [`zizmor.yml`](zizmor.yml) here is every repository's policy | -                                             |
+| shellcheck      | `.shellcheckrc`, and a `# shellcheck` directive in a file             | -                                             |
+| shfmt           | `.editorconfig`; without one, shfmt's defaults                        | `ignore = true` in an `.editorconfig` section |
+| shell-trap-lint | nothing                                                               | -                                             |
+| ruff            | `pyproject.toml`, `ruff.toml` or `.ruff.toml`                         | `exclude` or `extend-exclude` there           |
+| buildifier      | nothing: every repository gets its default warnings                   | -                                             |
+| prettier        | its configuration file, and `.editorconfig`                           | `.prettierignore`                             |
+
+buildifier switches one warning off for one line at a
+`# buildifier: disable=<warning>` comment there, which says so beside the code.
 
 shell-trap-lint judges every shell file by its script form. Which files are
 tests is a caller's to say, so its test form's further check, that a failed

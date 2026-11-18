@@ -185,7 +185,9 @@ jobs:
   shell:
     # A script whose EXIT trap fails a run that stopped short: the action
     # passes it, reports it once shfmt would rewrite it, and reports a trap
-    # that lets such a run exit 0.
+    # that lets such a run exit 0. That last report is made beside a file in
+    # the checkout named for the lint's own module, which must not run in its
+    # place.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -227,7 +229,7 @@ jobs:
         id: format
         continue-on-error: true
         uses: ./
-      - name: Give it a trap that only cleans up instead
+      - name: Give it a trap that only cleans up instead, and add a module named for the lint
         run: |
           cat > case/work.sh <<'FILE'
           #!/bin/sh
@@ -236,6 +238,10 @@ jobs:
           trap 'rm -f "$TMP"' EXIT
           echo working >"$TMP"
           FILE
+          cat > shell_trap_lint.py <<'FILE'
+          raise SystemExit(0)
+          FILE
+          git add shell_trap_lint.py
       - name: The action reports it
         id: trap
         continue-on-error: true

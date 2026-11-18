@@ -27,9 +27,9 @@ versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
 - **One policy.** What is checked, and at which version, is the same in every
   repository. A zizmor exception goes in `zizmor.yml` with the reason, for every
   repository at once, and zizmor and buildifier never read a repository's own
-  configuration. A formatter or ruff reads the repository's, since how its files
-  are laid out and which lint rules it adopts are its own to say; the README
-  lists what each check reads.
+  configuration. A formatter, ruff, shellcheck or actionlint reads the
+  repository's, since how its files are laid out and which lint rules it adopts
+  are its own to say; the README lists what each check reads.
 - **The action's steps call scripts.** Each `run:` in `action.yml` is one call
   of an executable file in `lib/`, so shellcheck reads all of the shell the
   action runs. action-run-lint holds this repository to it.

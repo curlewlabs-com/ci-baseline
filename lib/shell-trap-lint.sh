@@ -13,7 +13,10 @@ if [ ! -s "$files" ]; then
 	exit 0
 fi
 # The lint parses shell with the shfmt on PATH, so it is given the pinned one
-# the formatting check runs: one shfmt, whatever the runner image ships.
+# the formatting check runs: one shfmt, whatever the runner image ships. -P
+# keeps the checkout off python's module path, where `-m` would otherwise put
+# it first: a file there named for the lint, or for a standard module the lint
+# imports, would run in its place.
 tr '\n' '\0' <"$files" |
 	PATH="$tools/bin:$PATH" PYTHONPATH="$tools/shell-trap-lint/src" \
-		xargs -0 python3 -m shell_trap_lint --
+		xargs -0 python3 -P -m shell_trap_lint --

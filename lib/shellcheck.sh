@@ -13,4 +13,5 @@ echo "ci-baseline: shellcheck $(wc -l <"$files" | tr -d ' ') files"
 # -x follows a `source` into the file it names, resolved from the sourcing
 # script's own directory, so a variable a sourced file sets is not reported
 # unset and a sourced file's own mistakes are read in context.
-tr '\n' '\0' <"$files" | xargs -0 "$bin/shellcheck" -x --source-path=SCRIPTDIR
+# The -- keeps a tracked file named like an option from being read as one.
+tr '\n' '\0' <"$files" | xargs -0 "$bin/shellcheck" -x --source-path=SCRIPTDIR --

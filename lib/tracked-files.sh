@@ -39,9 +39,9 @@ while IFS= read -r f; do
 		printf '%s\n' "$f" >>"$out/starlark"
 		;;
 	*)
-		if head -n 1 "$f" | grep -Eq '^#! *(/usr)?/bin/(env +)?(ba|da)?sh([[:space:]]|$)'; then
+		if head -n 1 -- "$f" | grep -Eq '^#! *(/usr)?/bin/(env +)?(ba|da)?sh([[:space:]]|$)'; then
 			printf '%s\n' "$f" >>"$out/shell"
-		elif head -n 1 "$f" | grep -Eq '^#! *(/usr)?(/local)?/bin/(env +)?python[0-9.]*([[:space:]]|$)'; then
+		elif head -n 1 -- "$f" | grep -Eq '^#! *(/usr)?(/local)?/bin/(env +)?python[0-9.]*([[:space:]]|$)'; then
 			printf '%s\n' "$f" >>"$out/python"
 		fi
 		;;
