@@ -2,8 +2,9 @@ name: ci-baseline
 description: >-
   The checks every repository runs: actionlint, zizmor, shellcheck, shfmt and
   shell-trap-lint over every shell file, ruff, RuboCop, buildifier, prettier
-  formatting, ASCII-only text, GitHub-hosted runners only, and composite steps
-  that call scripts.
+  formatting, ASCII-only text, GitHub-hosted runners only, composite steps
+  that call scripts, and workflow_run triggers and action manifests GitHub
+  accepts on push and then never runs.
 author: Curlew Labs
 branding:
   icon: check-square
@@ -22,6 +23,9 @@ runs:
     - name: action-run-lint
       if: ${{ !cancelled() }}
       uses: curlewlabs-com/action-run-lint@aa20110b7f60099c1b6f4bdea13fb5f679d85a9f # v0.1.1
+    - name: actions-silent-lint
+      if: ${{ !cancelled() }}
+      uses: curlewlabs-com/actions-silent-lint@67697275c2396124cf39cc7b2b37c730658d73b7 # v0.2.0
     - name: Install the pinned tools
       id: tools
       if: ${{ !cancelled() }}
