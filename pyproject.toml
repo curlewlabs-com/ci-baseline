@@ -1,5 +1,5 @@
-# Not a package: the configuration of the lint and type-check tools CI runs
-# over tools/.
+# Not a package: the configuration of the lint the action runs over this
+# repository's Python, and of the type check CI runs over tools/.
 [tool.ruff]
 target-version = "py312"
 

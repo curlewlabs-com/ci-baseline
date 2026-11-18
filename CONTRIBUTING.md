@@ -6,30 +6,39 @@ whether a check that could not run still fails.
 
 ## Running the checks
 
-CI runs the action on this repository's own tree on every push and pull request.
-Locally, with Python 3.12 or newer:
+CI runs the action on this repository's own tree on every push and pull request,
+which is what lints and formats it. The type check is the one thing it runs
+besides; locally, with Python 3.12 or newer:
 
 ```sh
 python3 -m pip install -r requirements-dev.txt
-ruff format --check . && ruff check . && mypy
+mypy
 ```
+
+To see what the action would report before pushing, run the same tools at the
+versions [`lib/install-tools.sh`](lib/install-tools.sh) names:
+`ruff check . && ruff format --check .`, `shfmt -d lib`, `prettier --check .`.
 
 ## Conventions
 
 - **Tests ship with the change.** A change to what the action finds includes a
   CI case that shows it finding it. A check implemented in its own repository is
   tested there.
-- **One policy.** A zizmor exception goes in `zizmor.yml` with the reason, for
-  every repository at once; the action never reads a repository's own config.
+- **One policy.** What is checked, and at which version, is the same in every
+  repository. A zizmor exception goes in `zizmor.yml` with the reason, for every
+  repository at once, and zizmor and buildifier never read a repository's own
+  configuration. A formatter, ruff, shellcheck or actionlint reads the
+  repository's, since how its files are laid out and which lint rules it adopts
+  are its own to say; the README lists what each check reads.
 - **The action's steps call scripts.** Each `run:` in `action.yml` is one call
   of an executable file in `lib/`, so shellcheck reads all of the shell the
   action runs. action-run-lint holds this repository to it.
 - **Pin dependencies exactly.** An action reference is its release's commit SHA
   with the version beside it, since a tag can be moved. A downloaded tool is an
-  exact version with the sha256 of each asset beside it. Renovate proposes the
-  updates; after a tool bump, `python3 tools/refresh_tools.py` rewrites the
-  digests. A pin written inline needs a `# renovate:` comment above it saying
-  what the literal is.
+  exact version with the sha256 of each asset beside it, or a commit, which git
+  verifies by its name. Renovate proposes the updates; after a tool bump,
+  `python3 tools/refresh_tools.py` rewrites the digests. A pin written inline
+  needs a `# renovate:` comment above it saying what the literal is.
 - **Comments explain why, not what.**
 - **Keep tracked text ASCII.**
 
