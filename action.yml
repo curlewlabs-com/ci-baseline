@@ -30,13 +30,13 @@ runs:
       uses: curlewlabs-com/ascii-lint@3463dd205bfe46bacd394de149ec30870cbf858f # v0.2.1
     - name: hosted-runner-lint
       if: ${{ !cancelled() }}
-      uses: curlewlabs-com/hosted-runner-lint@6864b8dd0bd59a31da095aa2792a4e3f6432d566 # v0.1.1
+      uses: curlewlabs-com/hosted-runner-lint@120108691a9b7a32ab0c78cb6d019620edfe1dab # v0.1.2
     - name: action-run-lint
       if: ${{ !cancelled() }}
       uses: curlewlabs-com/action-run-lint@aa20110b7f60099c1b6f4bdea13fb5f679d85a9f # v0.1.1
     - name: actions-silent-lint
       if: ${{ !cancelled() }}
-      uses: curlewlabs-com/actions-silent-lint@67697275c2396124cf39cc7b2b37c730658d73b7 # v0.2.0
+      uses: curlewlabs-com/actions-silent-lint@ccdba5f8fecaa5b95bb2223598a406a9a727a42c # v0.2.1
     - name: Install the pinned tools
       id: tools
       if: ${{ !cancelled() }}
