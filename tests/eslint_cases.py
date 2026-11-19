@@ -106,6 +106,157 @@ def typed(files: Mapping[str, str]) -> dict[str, str]:
     return {**TYPED_REPO, **files}
 
 
+# Each kind of file the configuration lints as JavaScript, named so that no
+# one's path is a part of another's.
+JAVASCRIPT_KINDS = (
+    "src/plain.js",
+    "src/module.mjs",
+    "src/common.cjs",
+    "src/view.jsx",
+    "bin/tool",
+)
+
+
+def javascript(body: str, exports: str, jsx: str = "") -> dict[str, str]:
+    """`body` as each kind of JavaScript file, exporting `exports` the way that
+    kind can: an ES module's `export`, or CommonJS's `module.exports` in a
+    `.cjs` and in a script found by its shebang. `jsx` is added to the `.jsx`
+    file alone."""
+    module = f"export {{ {exports} }};\n"
+    common = f"module.exports = {{ {exports} }};\n"
+    return {
+        "src/plain.js": body + module,
+        "src/module.mjs": body + module,
+        "src/common.cjs": body + common,
+        "src/view.jsx": body + jsx + module,
+        "bin/tool": "#!/usr/bin/env node\n" + body + common,
+    }
+
+
+def both_layers(
+    name: str,
+    allowed: Mapping[str, str],
+    refused: Mapping[str, str],
+    reports: Sequence[str],
+) -> list[Lint]:
+    """The pair run by the baseline layer, and again by the typed one, which
+    applies the baseline layer's rules to JavaScript too."""
+    return [
+        *pair(f"{name}, baseline layer", allowed, refused, reports),
+        *pair(
+            f"{name}, typed layer",
+            typed(allowed),
+            typed(refused),
+            reports,
+            layer="typed",
+            node_types=True,
+        ),
+    ]
+
+
+# JavaScript syntax the typescript-eslint rules in the set visit: classes with
+# fields, private members, a static block, accessors, computed keys and
+# constructors whose parameters have defaults, destructuring and rest; async
+# generators, labels, spread, optional chaining and logical assignment. A
+# typescript-eslint rule may read a property only typescript-eslint's parser
+# sets, and on ESLint's own AST it throws rather than reports; one that does
+# so fails this corpus, here rather than in a repository that writes the same
+# syntax. It is written to have no finding.
+JAVASCRIPT_CORPUS = (
+    "class Base {\n"
+    "  static count = 0;\n"
+    "  #secret = 1;\n"
+    "  field;\n"
+    "  static {\n"
+    "    Base.count += 1;\n"
+    "  }\n"
+    "  constructor(a, b = 2, { c } = {}, [d] = [], ...rest) {\n"
+    "    this.a = a;\n"
+    "    this.b = b;\n"
+    "    this.field = { c, d, rest };\n"
+    "  }\n"
+    "  get secret() {\n"
+    "    return this.#secret;\n"
+    "  }\n"
+    "  set secret(value) {\n"
+    "    this.#secret = value;\n"
+    "  }\n"
+    "  static make(x) {\n"
+    "    return new Base(x);\n"
+    "  }\n"
+    "  async *items() {\n"
+    "    yield await Promise.resolve(this.a);\n"
+    "  }\n"
+    "  #has() {\n"
+    "    return #secret in this;\n"
+    "  }\n"
+    "  has() {\n"
+    "    return this.#has();\n"
+    "  }\n"
+    "  [Symbol.iterator]() {\n"
+    "    return [this.a][Symbol.iterator]();\n"
+    "  }\n"
+    "}\n"
+    "class Child extends Base {\n"
+    "  constructor(a, ...more) {\n"
+    "    super(a, ...more);\n"
+    "    this.made = new.target === Child;\n"
+    "  }\n"
+    "  method(x = this.a) {\n"
+    '    return Base.make(x)?.field?.["c"] ?? super.has();\n'
+    "  }\n"
+    "}\n"
+    "const Named = class Inner {\n"
+    "  constructor(x) {\n"
+    "    this.x = x;\n"
+    "  }\n"
+    "  copy() {\n"
+    "    return new Inner(this.x);\n"
+    "  }\n"
+    "};\n"
+    "async function walk(source, { limit = 1, skip: [first] = [0] } = {}, ...rest) {\n"
+    "  const out = [first, ...rest];\n"
+    "  outer: for await (const value of source) {\n"
+    "    for (const key in value) {\n"
+    "      if (out.length > limit) break outer;\n"
+    "      out.push(key);\n"
+    "    }\n"
+    "  }\n"
+    "  return out;\n"
+    "}\n"
+    "function* count(n) {\n"
+    "  yield* Array.from({ length: n }, (_, i) => i);\n"
+    "}\n"
+    "const settle = async (x, { y = 0 } = {}) => (await x) + y;\n"
+    "const shape = {\n"
+    "  a: 1,\n"
+    "  get b() {\n"
+    "    return this.a;\n"
+    "  },\n"
+    "  set b(v) {\n"
+    "    this.a = v;\n"
+    "  },\n"
+    '  ["c" + 1]: 3,\n'
+    "  method(p) {\n"
+    "    return p;\n"
+    "  },\n"
+    "  ...{ d: 4n ** 2n },\n"
+    "};\n"
+    "let flag = 0;\n"
+    "flag ||= 1;\n"
+    "flag &&= 2;\n"
+    "flag ??= 3;\n"
+    "function parse(text) {\n"
+    "  try {\n"
+    "    return JSON.parse(text);\n"
+    "  } catch {\n"
+    "    return String.raw`${text}\\n` + /a(?<b>c)/dgsu.source + flag;\n"
+    "  }\n"
+    "}\n"
+)
+JAVASCRIPT_CORPUS_EXPORTS = "Base, Child, Named, walk, count, settle, shape, parse"
+
+
 CASES: list[Lint] = [
     *pair(
         "a finding in JavaScript",
@@ -124,6 +275,37 @@ CASES: list[Lint] = [
         {"bin/tool": "#!/usr/bin/env node\nconsole.log(1);\n"},
         {"bin/tool": "#!/usr/bin/env node\nconsole.log(undefinedName);\n"},
         ["no-undef"],
+    ),
+    *both_layers(
+        "a JavaScript constructor that takes a parameter",
+        javascript(
+            "class Point {\n  constructor(x) {\n    this.x = x;\n  }\n"
+            "  moved(by) {\n    return new Point(this.x + by);\n  }\n}\n",
+            "Point",
+        ),
+        javascript(
+            "class Base {\n  constructor(x) {\n    this.x = x;\n  }\n}\n"
+            "class Same extends Base {\n  constructor(x) {\n    super(x);\n  }\n}\n",
+            "Base, Same",
+        ),
+        # The message, not the rule id: a crash names the rule it was in, and
+        # only a finding says what is wrong.
+        ["Useless constructor", *JAVASCRIPT_KINDS],
+    ),
+    *both_layers(
+        "a JavaScript syntax corpus runs without a rule crashing",
+        javascript(
+            JAVASCRIPT_CORPUS,
+            JAVASCRIPT_CORPUS_EXPORTS,
+            'export const element = <div className="a">{shape.a}</div>;\n',
+        ),
+        # A finding planted in each file shows each was linted, so the corpus
+        # cannot pass by not being read.
+        javascript(
+            JAVASCRIPT_CORPUS + "const planted = undefinedName;\n",
+            JAVASCRIPT_CORPUS_EXPORTS + ", planted",
+        ),
+        ["no-undef", *JAVASCRIPT_KINDS],
     ),
     *pair(
         "an underscore marks an unused binding",

@@ -265,6 +265,23 @@ export function baselineConfig({
       files: ["**/*.cjs", "**/*.js", ...extraFiles],
       languageOptions: { globals: globals.node },
     },
+    // A typescript-eslint rule reads the AST typescript-eslint's parser builds,
+    // and one that reads a property only that parser sets throws on ESLint's
+    // own instead of reporting: no-useless-constructor reads each constructor
+    // parameter's `decorators`, so it fails the run on any JavaScript class
+    // whose constructor takes one. In JavaScript it gives way to the core rule
+    // it extends, which checks the same thing there, since what it adds
+    // (accessibility modifiers, parameter properties, parameter decorators) is
+    // syntax ESLint's parser refuses. The rest of the set runs on ESLint's AST
+    // without throwing, which the JavaScript syntax corpus in
+    // tests/eslint_cases.py holds it to.
+    {
+      files: [...JS, ...extraFiles],
+      rules: {
+        "@typescript-eslint/no-useless-constructor": "off",
+        "no-useless-constructor": "error",
+      },
+    },
     // CommonJS has no import but `require`.
     {
       files: ["**/*.cjs"],

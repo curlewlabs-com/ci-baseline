@@ -292,7 +292,10 @@ itself; the script form accepts a test's completion check.
 eslint runs with the one configuration in
 [`lint/config/rules.mjs`](lint/config/rules.mjs), which names each rule beyond
 its presets and why. JavaScript is parsed as JavaScript and TypeScript as
-TypeScript. CommonJS's globals (`require`, `module`, `__dirname`) are defined in
+TypeScript. typescript-eslint's rules run on both, except that in JavaScript
+`no-useless-constructor` is ESLint's own rule of that name: typescript-eslint's
+reads a property only its own parser sets, and on a JavaScript constructor that
+takes a parameter it throws instead of reporting. CommonJS's globals (`require`, `module`, `__dirname`) are defined in
 a `.cjs`, and in a `.js` or a script found by its shebang, which is CommonJS or a
 module by its `package.json`, and not in an `.mjs`. It reads no `eslint.config.*` and no
 `eslint-suppressions.json` of the repository's, and a configuration written in a
