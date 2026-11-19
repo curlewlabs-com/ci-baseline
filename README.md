@@ -332,8 +332,9 @@ Python imports at run time. The check does not look for these cases:
 
 - **A same-named module in two directories** resolves from the importing
   file's own directory first, then the root and the tree's other directories,
-  then `python-search-paths`. Python finds whichever is first on `sys.path`
-  when it runs.
+  then `python-search-paths`. A module in a search path resolves its own
+  imports through the search paths alone, in the order they are named.
+  Python finds whichever is first on `sys.path` when it runs.
 - **A `.pyi` apart from its `.py`**, in another directory pyright searches, is
   taken in preference to the `.py` beside the importing file, which is the one
   Python runs.

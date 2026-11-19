@@ -160,7 +160,11 @@ class TestRepositoryConfig(unittest.TestCase):
     def test_each_directory_searches_itself_first_then_the_rest(self) -> None:
         """A sibling resolves from the script's own directory before any other,
         so two directories each with a `helper` module never read each other's;
-        a package is imported from the directory above its top level."""
+        a package is imported from the directory above its top level. A file in
+        the search path, under none of those roots, reads the top-level
+        `extraPaths`: without them a fetched module's import of its own
+        sibling resolved nowhere, and what tracked code imported from it was
+        unknown."""
         tree, stubs, fetched = Path("/t"), Path("/empty"), Path("/fetched")
         config = repository_config(
             tree,
@@ -182,6 +186,7 @@ class TestRepositoryConfig(unittest.TestCase):
                 "pythonVersion": "3.12",
                 "pythonPlatform": "Linux",
                 "stubPath": "/empty",
+                "extraPaths": ["/fetched"],
                 "executionEnvironments": [
                     {
                         "root": "/t/src/pkg/sub",
