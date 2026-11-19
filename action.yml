@@ -33,7 +33,7 @@ runs:
       uses: curlewlabs-com/hosted-runner-lint@120108691a9b7a32ab0c78cb6d019620edfe1dab # v0.1.2
     - name: action-run-lint
       if: ${{ !cancelled() }}
-      uses: curlewlabs-com/action-run-lint@aa20110b7f60099c1b6f4bdea13fb5f679d85a9f # v0.1.1
+      uses: curlewlabs-com/action-run-lint@84ba9cf857120d55d2a1d9bdaf480b8f7d251c2d # v0.1.2
     - name: actions-silent-lint
       if: ${{ !cancelled() }}
       uses: curlewlabs-com/actions-silent-lint@ccdba5f8fecaa5b95bb2223598a406a9a727a42c # v0.2.1
