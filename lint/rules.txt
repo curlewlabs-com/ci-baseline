@@ -18,7 +18,6 @@ baseline source.cjs @typescript-eslint/no-unsafe-declaration-merging
 baseline source.cjs @typescript-eslint/no-unsafe-function-type
 baseline source.cjs @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
 baseline source.cjs @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
-baseline source.cjs @typescript-eslint/no-useless-constructor
 baseline source.cjs @typescript-eslint/no-wrapper-object-types
 baseline source.cjs @typescript-eslint/prefer-as-const
 baseline source.cjs @typescript-eslint/prefer-literal-enum-member
@@ -88,6 +87,7 @@ baseline source.cjs no-unused-private-class-members
 baseline source.cjs no-useless-assignment
 baseline source.cjs no-useless-backreference
 baseline source.cjs no-useless-catch
+baseline source.cjs no-useless-constructor
 baseline source.cjs no-useless-escape [{"allowRegexCharacters":[]}]
 baseline source.cjs no-with
 baseline source.cjs preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
@@ -115,7 +115,6 @@ baseline source.js @typescript-eslint/no-unsafe-declaration-merging
 baseline source.js @typescript-eslint/no-unsafe-function-type
 baseline source.js @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
 baseline source.js @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
-baseline source.js @typescript-eslint/no-useless-constructor
 baseline source.js @typescript-eslint/no-wrapper-object-types
 baseline source.js @typescript-eslint/prefer-as-const
 baseline source.js @typescript-eslint/prefer-literal-enum-member
@@ -185,6 +184,7 @@ baseline source.js no-unused-private-class-members
 baseline source.js no-useless-assignment
 baseline source.js no-useless-backreference
 baseline source.js no-useless-catch
+baseline source.js no-useless-constructor
 baseline source.js no-useless-escape [{"allowRegexCharacters":[]}]
 baseline source.js no-with
 baseline source.js preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
@@ -294,7 +294,6 @@ baseline test.js @typescript-eslint/no-unsafe-declaration-merging
 baseline test.js @typescript-eslint/no-unsafe-function-type
 baseline test.js @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
 baseline test.js @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
-baseline test.js @typescript-eslint/no-useless-constructor
 baseline test.js @typescript-eslint/no-wrapper-object-types
 baseline test.js @typescript-eslint/prefer-as-const
 baseline test.js @typescript-eslint/prefer-literal-enum-member
@@ -365,6 +364,7 @@ baseline test.js no-unused-private-class-members
 baseline test.js no-useless-assignment
 baseline test.js no-useless-backreference
 baseline test.js no-useless-catch
+baseline test.js no-useless-constructor
 baseline test.js no-useless-escape [{"allowRegexCharacters":[]}]
 baseline test.js no-with
 baseline test.js preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
@@ -474,7 +474,6 @@ typed source.cjs @typescript-eslint/no-unsafe-declaration-merging
 typed source.cjs @typescript-eslint/no-unsafe-function-type
 typed source.cjs @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
 typed source.cjs @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
-typed source.cjs @typescript-eslint/no-useless-constructor
 typed source.cjs @typescript-eslint/no-wrapper-object-types
 typed source.cjs @typescript-eslint/prefer-as-const
 typed source.cjs @typescript-eslint/prefer-literal-enum-member
@@ -544,6 +543,7 @@ typed source.cjs no-unused-private-class-members
 typed source.cjs no-useless-assignment
 typed source.cjs no-useless-backreference
 typed source.cjs no-useless-catch
+typed source.cjs no-useless-constructor
 typed source.cjs no-useless-escape [{"allowRegexCharacters":[]}]
 typed source.cjs no-with
 typed source.cjs preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
@@ -571,7 +571,6 @@ typed source.js @typescript-eslint/no-unsafe-declaration-merging
 typed source.js @typescript-eslint/no-unsafe-function-type
 typed source.js @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
 typed source.js @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
-typed source.js @typescript-eslint/no-useless-constructor
 typed source.js @typescript-eslint/no-wrapper-object-types
 typed source.js @typescript-eslint/prefer-as-const
 typed source.js @typescript-eslint/prefer-literal-enum-member
@@ -641,6 +640,7 @@ typed source.js no-unused-private-class-members
 typed source.js no-useless-assignment
 typed source.js no-useless-backreference
 typed source.js no-useless-catch
+typed source.js no-useless-constructor
 typed source.js no-useless-escape [{"allowRegexCharacters":[]}]
 typed source.js no-with
 typed source.js preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
@@ -786,7 +786,6 @@ typed test.js @typescript-eslint/no-unsafe-declaration-merging
 typed test.js @typescript-eslint/no-unsafe-function-type
 typed test.js @typescript-eslint/no-unused-expressions [{"allowShortCircuit":false,"allowTaggedTemplates":false,"allowTernary":false}]
 typed test.js @typescript-eslint/no-unused-vars [{"argsIgnorePattern":"^_","varsIgnorePattern":"^_","caughtErrorsIgnorePattern":"^_","destructuredArrayIgnorePattern":"^_"}]
-typed test.js @typescript-eslint/no-useless-constructor
 typed test.js @typescript-eslint/no-wrapper-object-types
 typed test.js @typescript-eslint/prefer-as-const
 typed test.js @typescript-eslint/prefer-literal-enum-member
@@ -857,6 +856,7 @@ typed test.js no-unused-private-class-members
 typed test.js no-useless-assignment
 typed test.js no-useless-backreference
 typed test.js no-useless-catch
+typed test.js no-useless-constructor
 typed test.js no-useless-escape [{"allowRegexCharacters":[]}]
 typed test.js no-with
 typed test.js preserve-caught-error [{"requireCatchParameter":false,"errorClassNames":[]}]
