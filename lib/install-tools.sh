@@ -28,7 +28,7 @@ PYRIGHT_VERSION=1.1.414
 # shell-trap-lint is fetched as a commit, which git verifies by its name, so
 # it has no digest below; the tag beside it is the release that commit is.
 # renovate: datasource=github-tags depName=curlewlabs-com/shell-trap-lint pin=digest
-SHELL_TRAP_LINT_COMMIT=a7083827636531eaa762993eab14f20244eaa67d # v0.1.3
+SHELL_TRAP_LINT_COMMIT=057267eb3555b881390a345c70053ad07105f063 # v0.1.4
 # The official Ruby image RuboCop runs in, by tag and by the digest of its
 # multi-architecture index, which is what is pulled; the tag is for a reader
 # and for the update. Pulled from the Amazon ECR Public mirror of Docker's
