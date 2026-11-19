@@ -610,9 +610,12 @@ jobs:
   pyright-search-paths:
     # An import of a module the repository does not track resolves only
     # through `python-search-paths`, relative or absolute, and nothing in a
-    # search path is checked: its module has a finding of its own. An
-    # untracked module in the checkout is not read without it, and a search
-    # path that does not exist fails.
+    # search path is checked: its module has a finding of its own. That
+    # module takes the name the tracked file reads from a sibling in its own
+    # directory, so each pass needs the sibling to resolve: were it not, the
+    # name would be unknown and the tracked file would fail. An untracked
+    # module in the checkout is not read without it, and a search path that
+    # does not exist fails.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -620,15 +623,16 @@ jobs:
           persist-credentials: false
       - name: Leave the Gemfile out of the tracked files
         run: git rm -q --cached "$RUBY_GEMFILE"
-      - name: Add a module that imports one fetched into the checkout and outside it
+      - name: Add a module that imports one fetched into the checkout and outside it, which imports its sibling
         env:
           OUTSIDE: ${{ runner.temp }}/fetched
         run: |
           mkdir -p case vendor "$OUTSIDE"
           printf 'import vendored\n\nLABEL: str = vendored.LABEL\n' >case/uses.py
           git add case
-          printf 'LABEL: str = "label"\n\n\ndef double(value):\n    return value * 2\n' >vendor/vendored.py
-          cp vendor/vendored.py "$OUTSIDE/vendored.py"
+          printf 'from vendored_label import LABEL\n\n\ndef double(value):\n    return value * 2\n' >vendor/vendored.py
+          printf 'LABEL: str = "label"\n' >vendor/vendored_label.py
+          cp vendor/vendored.py vendor/vendored_label.py "$OUTSIDE/"
       - name: The action reports it
         id: unnamed
         continue-on-error: true

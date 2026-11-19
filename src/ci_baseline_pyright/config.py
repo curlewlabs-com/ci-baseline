@@ -176,6 +176,14 @@ def repository_config(
     environment whose root holds it. All paths are absolute. `stubs` is
     pyright's `stubPath`, named so that its default, a `typings` directory, is
     not looked for.
+
+    A file in a search path lies under none of those roots, so pyright gives
+    it the configuration's top-level settings, and their `extraPaths` are the
+    search paths alone, in the order named: a fetched module's import of a
+    sibling in its own directory resolves, as it does once that directory is
+    on `sys.path`, and nothing of the tree is searched for it. An environment
+    that states its own `extraPaths` does not read the top-level ones, so
+    this changes nothing for a tracked file.
     """
     files = [PurePosixPath(path) for path in tracked]
     dirs = {path.parent for path in files} - {PurePosixPath(".")}
@@ -204,5 +212,6 @@ def repository_config(
         "pythonVersion": floor,
         "pythonPlatform": platform,
         "stubPath": str(stubs),
+        "extraPaths": after,
         "executionEnvironments": environments,
     }
