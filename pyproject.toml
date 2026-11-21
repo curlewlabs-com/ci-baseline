@@ -7,7 +7,7 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "ci-baseline-pyright"
-version = "0.3.4"
+version = "0.3.5"
 description = "The pyright strict policy ci-baseline holds every repository's Python to, and the step that applies it."
 readme = "README.md"
 license = "MIT OR Apache-2.0"
