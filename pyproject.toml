@@ -1,6 +1,6 @@
-# The action is not installed; the package below is what another project
-# installs to read the pyright policy the action applies (policy.py), and is
-# also what the action's pyright step runs from its own checkout.
+# The action runs the package from its checkout. The separate package makes
+# the policy and configuration readers available without running the action;
+# its __init__ names the importable modules.
 [build-system]
 requires = ["flit_core==4.2.0"]
 build-backend = "flit_core.buildapi"

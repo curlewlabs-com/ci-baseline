@@ -250,6 +250,11 @@ what its other tools already read:
   unstated;
 - the platform, `[tool.mypy] platform` in the root `pyproject.toml`, or Linux.
 
+[`config.py`](src/ci_baseline_pyright/config.py) reads both, and finds the
+pyright configuration a repository may not carry (below). To apply the same
+policy from another project, import the readers named in
+[the package's docstring](src/ci_baseline_pyright/__init__.py).
+
 A file's imports resolve from its own directory first, then the repository
 root, every other directory holding a tracked Python file or above one (so a
 package under `src/` is imported from `src`), the directories
