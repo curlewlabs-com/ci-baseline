@@ -1,6 +1,6 @@
 {
   "name": "@curlewlabs-com/eslint-config",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "description": "ci-baseline's one eslint configuration, for a repository that runs eslint from its own install rather than through the action.",
   "license": "MIT OR Apache-2.0",
   "repository": {
